@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 set -euo pipefail
-exec </dev/tty
 
 VERSION="1.0.0"
 
@@ -1538,6 +1537,7 @@ show_summary() {
 }
 
 main() {
+  exec </dev/tty
     local old_tty
     old_tty=$(stty -g 2>/dev/null || true)
     trap 'stty "${old_tty:-}" 2>/dev/null || true; tput cnorm 2>/dev/null || true; echo -en "\033[0m"; exit' INT TERM EXIT
