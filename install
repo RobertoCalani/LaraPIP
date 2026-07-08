@@ -840,6 +840,7 @@ generate_docker_compose() {
     image: mysql:'"${DB_VERSION}"'
     container_name: '"${APP_NAME}"'-database
     restart: unless-stopped
+    command: --default-authentication-plugin=mysql_native_password
     ports:
       - "3306:3306"
     environment:
@@ -1255,6 +1256,7 @@ max_allowed_packet = 64M
 innodb_buffer_pool_size = 256M
 character-set-server = utf8mb4
 collation-server = utf8mb4_unicode_ci
+default_authentication_plugin=mysql_native_password
 
 [client]
 default-character-set = utf8mb4
@@ -1412,6 +1414,8 @@ PHPARTISAN
 
 start_containers() {
     echo
+    info "Stopping any previous containers..."
+    $COMPOSE_CMD down 2>/dev/null || true
     info "Starting Docker containers..."
     $COMPOSE_CMD up -d --build 2>&1 | while IFS= read -r line; do
         printf "  ${CYAN}>${NC} %s\n" "$line"
@@ -1465,6 +1469,35 @@ wait_for_database() {
         ok "Database is ready!"
     else
         warn "Database did not respond within ${timeout}s. Continuing anyway..."
+    fi
+}
+
+ensure_db_user() {
+    if [ "$DB_TYPE" != "mysql" ] && [ "$DB_TYPE" != "mariadb" ]; then
+        return 0
+    fi
+    local timeout=30
+    local elapsed=0
+    while [ $elapsed -lt $timeout ]; do
+        if $COMPOSE_CMD exec -T database mysql -u "${DB_USERNAME}" "-p${DB_PASSWORD}" "${DB_DATABASE}" -e 'SELECT 1' 2>/dev/null; then
+            ok "Database user verified"
+            return 0
+        fi
+        sleep 2
+        elapsed=$((elapsed + 2))
+    done
+    info "Database user not found — creating..."
+    $COMPOSE_CMD exec -T database mysql -u root "-p${DB_PASSWORD}" <<SQL 2>/dev/null
+CREATE DATABASE IF NOT EXISTS \`${DB_DATABASE}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER IF NOT EXISTS '${DB_USERNAME}'@'%' IDENTIFIED WITH mysql_native_password BY '${DB_PASSWORD}';
+GRANT ALL PRIVILEGES ON \`${DB_DATABASE}\`.* TO '${DB_USERNAME}'@'%';
+ALTER USER '${DB_USERNAME}'@'%' IDENTIFIED WITH mysql_native_password BY '${DB_PASSWORD}';
+FLUSH PRIVILEGES;
+SQL
+    if $COMPOSE_CMD exec -T database mysql -u "${DB_USERNAME}" "-p${DB_PASSWORD}" "${DB_DATABASE}" -e 'SELECT 1' 2>/dev/null; then
+        ok "Database user created"
+    else
+        warn "Could not create database user — migration may fail"
     fi
 }
 
@@ -1578,6 +1611,7 @@ main() {
     check_port_conflicts
     start_containers
     wait_for_database
+    ensure_db_user
     initialize_project
     show_summary
 
