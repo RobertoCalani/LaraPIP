@@ -46,10 +46,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
     <p class="text-sm text-[var(--text-dim)] mx-auto mb-9 max-w-xl" data-i18n="tagline-sub">Larapip is a Docker configurator. It generates docker-compose.yml, Dockerfile, and .env for you. After setup, you can use plain docker compose or the included launcher.</p>
     <div class="inline-flex flex-col sm:flex-row items-center gap-3 bg-[var(--bg-code)] border border-[var(--border)] rounded-xl px-6 py-4 font-mono text-sm">
       <span class="text-[var(--accent2)] select-none">$</span>
-      <span class="text-[var(--text)]">curl -fsSL https://larapip.dev/installer.sh | bash</span>
+      <span class="text-[var(--text)]">curl -fsSL https://robertocalani.github.io/LaraPIP/installer.sh | bash</span>
       <button class="copy-btn bg-[var(--bg-card)] border border-[var(--border)] text-[var(--text-dim)] px-3.5 py-1.5 rounded-md text-xs cursor-pointer transition-colors duration-200 hover:text-[var(--text)] hover:border-[var(--accent)]" onclick="copyCmd()" data-i18n="copy">Copy</button>
     </div>
-    <a class="inline-block mt-7 px-6 py-2.5 border border-[var(--border)] rounded-xl bg-[var(--bg-card)] text-[var(--text)] font-semibold text-sm transition-colors duration-200 hover:border-[var(--accent)] hover:no-underline" href="https://github.com/yourusername/larapip" target="_blank" rel="noopener">
+    <a class="inline-block mt-7 px-6 py-2.5 border border-[var(--border)] rounded-xl bg-[var(--bg-card)] text-[var(--text)] font-semibold text-sm transition-colors duration-200 hover:border-[var(--accent)] hover:no-underline" href="https://github.com/RobertoCalani/LaraPIP" target="_blank" rel="noopener">
       <svg class="inline align-middle mr-1.5" height="18" width="18" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
       GitHub
     </a>
@@ -230,7 +230,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 
 <footer class="text-center py-8 border-t border-[var(--border)] text-xs text-[var(--text-dim)] mt-10">
   <div class="max-w-3xl mx-auto px-6">
-    <p>Larapip &mdash; MIT &middot; <a class="text-[var(--text-dim)] hover:underline" href="https://github.com/yourusername/larapip" target="_blank">GitHub</a> &middot; <a class="text-[var(--text-dim)] hover:underline" href="https://github.com/yourusername/larapip/issues" target="_blank" data-i18n="issues">Issues</a></p>
+    <p>Larapip &mdash; MIT &middot; <a class="text-[var(--text-dim)] hover:underline" href="https://github.com/RobertoCalani/LaraPIP" target="_blank">GitHub</a> &middot; <a class="text-[var(--text-dim)] hover:underline" href="https://github.com/RobertoCalani/LaraPIP/issues" target="_blank" data-i18n="issues">Issues</a></p>
   </div>
 </footer>
 
@@ -388,7 +388,7 @@ function toggleLang() {
 }
 
 function copyCmd(){
-  navigator.clipboard.writeText("curl -fsSL https://larapip.dev/installer.sh | bash").then(()=>{
+  navigator.clipboard.writeText("curl -fsSL https://robertocalani.github.io/LaraPIP/installer.sh | bash").then(()=>{
     const btn=document.querySelector(".copy-btn");
     const orig=btn.textContent;
     btn.textContent=LANG[currentLang].copy==="Copy"?"Copied!":"¡Copiado!";
