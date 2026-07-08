@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Larapip — Laravel Docker Dev Environment</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config={
+  darkMode:"class",
+  theme:{extend:{fontFamily:{mono:['"JetBrains Mono"',"Fira Code","monospace"]}}}
+}
+</script>
+<style>
+:root{--bg:#0d1117;--bg-card:#161b22;--bg-code:#1c2128;--border:#30363d;--text:#e6edf3;--text-dim:#8b949e;--accent:#58a6ff;--accent2:#3fb950;--orange:#d29922;--red:#f85149}
+:root.light,:root.light body{--bg:#ffffff;--bg-card:#f0f2f5;--bg-code:#e8eaed;--border:#d0d4d9;--text:#1a1a2e;--text-dim:#6b7280;--accent:#2563eb;--accent2:#16a34a;--orange:#b45309;--red:#dc2626}
+html.light{--bg:#ffffff;--bg-card:#f0f2f5;--bg-code:#e8eaed;--border:#d0d4d9;--text:#1a1a2e;--text-dim:#6b7280;--accent:#2563eb;--accent2:#16a34a;--orange:#b45309;--red:#dc2626}
+html.dark{color-scheme:dark}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);transition:background .25s,color .25s}
+[data-i18n-html] code{background:var(--bg-code);padding:2px 6px;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:.82rem}
+.badge-green{display:inline-block;padding:1px 8px;border-radius:20px;font-size:.75rem;font-weight:500;background:rgba(22,163,74,0.12);color:var(--accent2)}
+.badge-red{display:inline-block;padding:1px 8px;border-radius:20px;font-size:.75rem;font-weight:500;background:rgba(220,38,38,0.12);color:var(--red)}
+.faq-item.open .faq-a{max-height:600px!important;opacity:1!important;padding-bottom:14px!important}
+.tab-content{display:none}
+.tab-content[data-active=true]{display:block}
+.faq-a{max-height:0;opacity:0;padding-bottom:0}
+.tab-btn[data-active=true]{background:var(--accent)!important;color:#fff!important;border-color:var(--accent)!important}
+@media(max-width:640px){.tool-btn{padding:6px 10px;font-size:.72rem}.tool-btn .label{display:none}}
+</style>
+</head>
+<body class="min-h-screen">
+
+<div class="fixed top-4 right-6 flex gap-2 z-50">
+  <button class="tool-btn flex items-center gap-1.5 border border-[var(--border)] rounded-lg px-3.5 py-2 text-xs font-medium cursor-pointer bg-[var(--bg-card)] text-[var(--text-dim)] transition-colors duration-200 hover:text-[var(--text)] hover:border-[var(--accent)]" id="themeBtn" onclick="toggleTheme()" title="Toggle theme">
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M8 12a4 4 0 1 0 8 0a4 4 0 1 0 -8 0"/><path d="M3 12h1m8 -9v1m8 8h1m-9 8v1m-6.4 -15.4l.7 .7m12.1 -.7l-.7 .7m0 11.4l.7 .7m-12.1 -.7l-.7 .7"/></svg>
+  </button>
+  <button class="tool-btn flex items-center gap-1.5 border border-[var(--border)] rounded-lg px-3.5 py-2 text-xs font-medium cursor-pointer bg-[var(--bg-card)] text-[var(--text-dim)] transition-colors duration-200 hover:text-[var(--text)] hover:border-[var(--accent)]" id="langBtn" onclick="toggleLang()" title="Switch language">
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0"/><path d="M3.6 9h16.8"/><path d="M3.6 15h16.8"/><path d="M11.5 3a17 17 0 0 0 0 18"/><path d="M12.5 3a17 17 0 0 1 0 18"/></svg><span class="label">ES</span>
+  </button>
+</div>
+
+<div class="py-24 text-center">
+  <div class="max-w-3xl mx-auto px-6">
+    <h1 class="text-5xl md:text-6xl font-bold tracking-tight mb-2">Lara<span class="text-[var(--accent)]">pip</span></h1>
+    <p class="text-lg text-[var(--text-dim)] mx-auto mb-3" data-i18n="tagline">Laravel + Docker — interactive stack builder, one command.</p>
+    <p class="text-sm text-[var(--text-dim)] mx-auto mb-9 max-w-xl" data-i18n="tagline-sub">Larapip is a Docker configurator. It generates docker-compose.yml, Dockerfile, and .env for you. After setup, you can use plain docker compose or the included launcher.</p>
+    <div class="inline-flex flex-col sm:flex-row items-center gap-3 bg-[var(--bg-code)] border border-[var(--border)] rounded-xl px-6 py-4 font-mono text-sm">
+      <span class="text-[var(--accent2)] select-none">$</span>
+      <span class="text-[var(--text)]">curl -fsSL https://larapip.dev/installer.sh | bash</span>
+      <button class="copy-btn bg-[var(--bg-card)] border border-[var(--border)] text-[var(--text-dim)] px-3.5 py-1.5 rounded-md text-xs cursor-pointer transition-colors duration-200 hover:text-[var(--text)] hover:border-[var(--accent)]" onclick="copyCmd()" data-i18n="copy">Copy</button>
+    </div>
+    <a class="inline-block mt-7 px-6 py-2.5 border border-[var(--border)] rounded-xl bg-[var(--bg-card)] text-[var(--text)] font-semibold text-sm transition-colors duration-200 hover:border-[var(--accent)] hover:no-underline" href="https://github.com/yourusername/larapip" target="_blank" rel="noopener">
+      <svg class="inline align-middle mr-1.5" height="18" width="18" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+      GitHub
+    </a>
+  </div>
+</div>
+
+<div class="max-w-3xl mx-auto px-6">
+  <div class="flex justify-center gap-1 mb-10 flex-wrap">
+     <button class="tab-btn border border-[var(--border)] rounded-lg px-5 py-2.5 text-sm font-medium cursor-pointer bg-[var(--bg-card)] text-[var(--text-dim)] transition-colors duration-200 hover:border-[var(--accent)] hover:text-[var(--text)]" data-tab="features" data-active="true" data-i18n="tab-features">Features</button>
+    <button class="tab-btn border border-[var(--border)] rounded-lg px-5 py-2.5 text-sm font-medium cursor-pointer bg-[var(--bg-card)] text-[var(--text-dim)] transition-colors duration-200 hover:border-[var(--accent)] hover:text-[var(--text)]" data-tab="versions" data-i18n="tab-versions">Versions</button>
+    <button class="tab-btn border border-[var(--border)] rounded-lg px-5 py-2.5 text-sm font-medium cursor-pointer bg-[var(--bg-card)] text-[var(--text-dim)] transition-colors duration-200 hover:border-[var(--accent)] hover:text-[var(--text)]" data-tab="services" data-i18n="tab-services">Services</button>
+    <button class="tab-btn border border-[var(--border)] rounded-lg px-5 py-2.5 text-sm font-medium cursor-pointer bg-[var(--bg-card)] text-[var(--text-dim)] transition-colors duration-200 hover:border-[var(--accent)] hover:text-[var(--text)]" data-tab="usage" data-i18n="tab-usage">Usage</button>
+    <button class="tab-btn border border-[var(--border)] rounded-lg px-5 py-2.5 text-sm font-medium cursor-pointer bg-[var(--bg-card)] text-[var(--text-dim)] transition-colors duration-200 hover:border-[var(--accent)] hover:text-[var(--text)]" data-tab="vanilla" data-i18n="tab-vanilla">Vanilla Docker</button>
+    <button class="tab-btn border border-[var(--border)] rounded-lg px-5 py-2.5 text-sm font-medium cursor-pointer bg-[var(--bg-card)] text-[var(--text-dim)] transition-colors duration-200 hover:border-[var(--accent)] hover:text-[var(--text)]" data-tab="faq" data-i18n="tab-faq">FAQ</button>
+  </div>
+
+  <div id="tab-features" class="tab-content hidden" data-active="true">
+    <div class="grid gap-3 mt-2" style="grid-template-columns:repeat(auto-fill,minmax(220px,1fr))">
+      <div class="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl p-4"><h3 class="text-sm font-semibold mb-1.5 text-[var(--accent)]" data-i18n="f1-title">Zero Config</h3><p class="text-sm text-[var(--text-dim)]" data-i18n="f1-desc">Answer 6 prompts, get a fully Dockerized Laravel stack. No manual setup.</p></div>
+      <div class="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl p-4"><h3 class="text-sm font-semibold mb-1.5 text-[var(--accent)]" data-i18n="f2-title">FrankenPHP</h3><p class="text-sm text-[var(--text-dim)]" data-i18n="f2-desc">HTTP/2, Octane, worker mode — all built into the PHP server.</p></div>
+      <div class="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl p-4"><h3 class="text-sm font-semibold mb-1.5 text-[var(--accent)]" data-i18n="f3-title">Auto SSL</h3><p class="text-sm text-[var(--text-dim)]" data-i18n="f3-desc">Caddy auto-generates local certificates. Dev HTTPS in one click.</p></div>
+      <div class="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl p-4"><h3 class="text-sm font-semibold mb-1.5 text-[var(--accent)]" data-i18n="f4-title">Portable</h3><p class="text-sm text-[var(--text-dim)]" data-i18n="f4-desc">Docker-only. Consistent environment on Linux, macOS, or Windows (WSL2).</p></div>
+      <div class="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl p-4"><h3 class="text-sm font-semibold mb-1.5 text-[var(--accent)]" data-i18n="f5-title">Launcher</h3><p class="text-sm text-[var(--text-dim)]"><code class="bg-[var(--bg-code)] px-1.5 py-0.5 rounded text-xs font-mono">./larapip.sh</code> <span data-i18n="f5-desc">optional helper for containers, DB shell, backups, and more.</span></p></div>
+      <div class="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl p-4"><h3 class="text-sm font-semibold mb-1.5 text-[var(--accent)]" data-i18n="f6-title">DB Volume</h3><p class="text-sm text-[var(--text-dim)]"><span data-i18n="f6-desc-prefix">All engines store data in a single</span> <code class="bg-[var(--bg-code)] px-1.5 py-0.5 rounded text-xs font-mono">database</code> <span data-i18n="f6-desc-suffix">volume. Inspect anytime.</span></p></div>
+    </div>
+  </div>
+
+  <div id="tab-versions" class="tab-content hidden">
+    <table class="w-full border-collapse text-sm mt-2">
+      <thead><tr><th class="text-left px-3.5 py-2 border-b border-[var(--border)] text-[var(--text-dim)] font-medium text-xs uppercase tracking-wide" data-i18n="col-component">Component</th><th class="text-left px-3.5 py-2 border-b border-[var(--border)] text-[var(--text-dim)] font-medium text-xs uppercase tracking-wide" data-i18n="col-versions">Versions</th><th class="text-left px-3.5 py-2 border-b border-[var(--border)] text-[var(--text-dim)] font-medium text-xs uppercase tracking-wide" data-i18n="col-support">Support</th></tr></thead>
+      <tbody>
+        <tr class="transition-colors duration-150 hover:bg-[var(--bg-card)]"><td class="px-3.5 py-2 border-b border-[var(--border)] font-semibold text-[var(--accent)]">Laravel</td><td class="px-3.5 py-2 border-b border-[var(--border)] text-[var(--text)]">13 · 12 · <s>11</s></td><td class="px-3.5 py-2 border-b border-[var(--border)]"><span class="badge-green">latest</span> <span class="badge-green">stable</span> <span class="badge-red">EOL</span></td></tr>
+        <tr class="transition-colors duration-150 hover:bg-[var(--bg-card)]"><td class="px-3.5 py-2 border-b border-[var(--border)] font-semibold text-[var(--accent)]">PHP</td><td class="px-3.5 py-2 border-b border-[var(--border)] text-[var(--text)]">8.2 · 8.3 · 8.4</td><td class="px-3.5 py-2 border-b border-[var(--border)]"><span class="badge-green" data-i18n="v-compatible">compatible</span></td></tr>
+        <tr class="transition-colors duration-150 hover:bg-[var(--bg-card)]"><td class="px-3.5 py-2 border-b border-[var(--border)] font-semibold text-[var(--accent)]" data-i18n="v-db">Database</td><td class="px-3.5 py-2 border-b border-[var(--border)] text-[var(--text)]">MySQL 8.0 · MariaDB 11.4 · PostgreSQL 16 · SQL Server 2022 · SQLite</td><td class="px-3.5 py-2 border-b border-[var(--border)]"><span class="badge-green" data-i18n="v-all">all</span></td></tr>
+        <tr class="transition-colors duration-150 hover:bg-[var(--bg-card)]"><td class="px-3.5 py-2 border-b border-[var(--border)] font-semibold text-[var(--accent)]">Node.js</td><td class="px-3.5 py-2 border-b border-[var(--border)] text-[var(--text)]">22 <span class="badge-green">LTS</span> · 20 <span class="badge-green">LTS</span> · 18 · custom</td><td class="px-3.5 py-2 border-b border-[var(--border)]"><span class="badge-green">Vite</span></td></tr>
+        <tr class="transition-colors duration-150 hover:bg-[var(--bg-card)]"><td class="px-3.5 py-2 border-b border-[var(--border)] font-semibold text-[var(--accent)]" data-i18n="v-server">Server</td><td class="px-3.5 py-2 border-b border-[var(--border)] text-[var(--text)]">FrankenPHP 1.12+ (Caddy, HTTP/2, Octane)</td><td class="px-3.5 py-2 border-b border-[var(--border)]"><span class="badge-green" data-i18n="v-active">active</span></td></tr>
+      </tbody>
+    </table>
+    <p class="text-xs text-[var(--text-dim)] mt-3" data-i18n="v-note">PHP version is automatically filtered by Laravel compatibility at install time.</p>
+  </div>
+
+  <div id="tab-services" class="tab-content hidden">
+    <table class="w-full border-collapse text-sm mt-2">
+      <thead><tr><th class="text-left px-3.5 py-2 border-b border-[var(--border)] text-[var(--text-dim)] font-medium text-xs uppercase tracking-wide" data-i18n="col-service">Service</th><th class="text-left px-3.5 py-2 border-b border-[var(--border)] text-[var(--text-dim)] font-medium text-xs uppercase tracking-wide">Image</th><th class="text-left px-3.5 py-2 border-b border-[var(--border)] text-[var(--text-dim)] font-medium text-xs uppercase tracking-wide">Port</th><th class="text-left px-3.5 py-2 border-b border-[var(--border)] text-[var(--text-dim)] font-medium text-xs uppercase tracking-wide" data-i18n="col-use">Use</th></tr></thead>
+      <tbody>
+        <tr class="transition-colors duration-150 hover:bg-[var(--bg-card)]"><td class="px-3.5 py-2 border-b border-[var(--border)] font-semibold text-[var(--accent)]">Mailpit</td><td class="px-3.5 py-2 border-b border-[var(--border)] text-[var(--text)]">axllent/mailpit</td><td class="px-3.5 py-2 border-b border-[var(--border)] text-[var(--text)]">1025, 8025</td><td class="px-3.5 py-2 border-b border-[var(--border)] text-[var(--text-dim)]" data-i18n="s-mailpit">SMTP catcher</td></tr>
+        <tr class="transition-colors duration-150 hover:bg-[var(--bg-card)]"><td class="px-3.5 py-2 border-b border-[var(--border)] font-semibold text-[var(--accent)]">Redis</td><td class="px-3.5 py-2 border-b border-[var(--border)] text-[var(--text)]">redis:7-alpine</td><td class="px-3.5 py-2 border-b border-[var(--border)] text-[var(--text)]">6379</td><td class="px-3.5 py-2 border-b border-[var(--border)] text-[var(--text-dim)]" data-i18n="s-redis">Cache / queue</td></tr>
+        <tr class="transition-colors duration-150 hover:bg-[var(--bg-card)]"><td class="px-3.5 py-2 border-b border-[var(--border)] font-semibold text-[var(--accent)]">phpMyAdmin</td><td class="px-3.5 py-2 border-b border-[var(--border)] text-[var(--text)]">phpmyadmin</td><td class="px-3.5 py-2 border-b border-[var(--border)] text-[var(--text)]">8080</td><td class="px-3.5 py-2 border-b border-[var(--border)] text-[var(--text-dim)]" data-i18n="s-phpmyadmin">MySQL/MariaDB admin</td></tr>
+        <tr class="transition-colors duration-150 hover:bg-[var(--bg-card)]"><td class="px-3.5 py-2 border-b border-[var(--border)] font-semibold text-[var(--accent)]">pgAdmin</td><td class="px-3.5 py-2 border-b border-[var(--border)] text-[var(--text)]">dpage/pgadmin4</td><td class="px-3.5 py-2 border-b border-[var(--border)] text-[var(--text)]">8080</td><td class="px-3.5 py-2 border-b border-[var(--border)] text-[var(--text-dim)]" data-i18n="s-pgadmin">PostgreSQL admin</td></tr>
+        <tr class="transition-colors duration-150 hover:bg-[var(--bg-card)]"><td class="px-3.5 py-2 border-b border-[var(--border)] font-semibold text-[var(--accent)]">Adminer</td><td class="px-3.5 py-2 border-b border-[var(--border)] text-[var(--text)]">adminer</td><td class="px-3.5 py-2 border-b border-[var(--border)] text-[var(--text)]">8080</td><td class="px-3.5 py-2 border-b border-[var(--border)] text-[var(--text-dim)]" data-i18n="s-adminer">Universal DB admin</td></tr>
+        <tr class="transition-colors duration-150 hover:bg-[var(--bg-card)]"><td class="px-3.5 py-2 border-b border-[var(--border)] font-semibold text-[var(--accent)]">MinIO</td><td class="px-3.5 py-2 border-b border-[var(--border)] text-[var(--text)]">minio/minio</td><td class="px-3.5 py-2 border-b border-[var(--border)] text-[var(--text)]">9000, 9001</td><td class="px-3.5 py-2 border-b border-[var(--border)] text-[var(--text-dim)]" data-i18n="s-minio">S3 storage</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div id="tab-usage" class="tab-content hidden">
+    <div class="bg-[var(--bg-card)] border border-[var(--border)] border-l-[3px] border-l-[var(--accent2)] rounded-xl px-4 py-3.5 mt-2 text-sm text-[var(--text-dim)]" data-i18n="u-note">Using larapip.sh is optional. It's a convenience wrapper around docker compose — you can use Docker directly (see the "Vanilla Docker" tab).</div>
+    <table class="w-full border-collapse text-sm mt-2">
+      <thead><tr><th class="text-left px-3.5 py-2 border-b border-[var(--border)] text-[var(--text-dim)] font-medium text-xs uppercase tracking-wide" data-i18n="col-command">Command</th><th class="text-left px-3.5 py-2 border-b border-[var(--border)] text-[var(--text-dim)] font-medium text-xs uppercase tracking-wide" data-i18n="col-desc">What it does</th></tr></thead>
+      <tbody>
+        <tr class="transition-colors duration-150 hover:bg-[var(--bg-card)]"><td class="px-3.5 py-2 border-b border-[var(--border)] font-semibold text-[var(--accent)]"><code class="bg-[var(--bg-code)] px-1.5 py-0.5 rounded text-xs font-mono text-[var(--text)]">./larapip.sh up</code></td><td class="px-3.5 py-2 border-b border-[var(--border)] text-[var(--text-dim)]" data-i18n="u-up">Start all containers</td></tr>
+        <tr class="transition-colors duration-150 hover:bg-[var(--bg-card)]"><td class="px-3.5 py-2 border-b border-[var(--border)] font-semibold text-[var(--accent)]"><code class="bg-[var(--bg-code)] px-1.5 py-0.5 rounded text-xs font-mono text-[var(--text)]">./larapip.sh down</code></td><td class="px-3.5 py-2 border-b border-[var(--border)] text-[var(--text-dim)]" data-i18n="u-down">Stop all containers</td></tr>
+        <tr class="transition-colors duration-150 hover:bg-[var(--bg-card)]"><td class="px-3.5 py-2 border-b border-[var(--border)] font-semibold text-[var(--accent)]"><code class="bg-[var(--bg-code)] px-1.5 py-0.5 rounded text-xs font-mono text-[var(--text)]">./larapip.sh db:shell</code></td><td class="px-3.5 py-2 border-b border-[var(--border)] text-[var(--text-dim)]" data-i18n="u-dbshell">Connect to database CLI (auto-detects engine)</td></tr>
+        <tr class="transition-colors duration-150 hover:bg-[var(--bg-card)]"><td class="px-3.5 py-2 border-b border-[var(--border)] font-semibold text-[var(--accent)]"><code class="bg-[var(--bg-code)] px-1.5 py-0.5 rounded text-xs font-mono text-[var(--text)]">./larapip.sh db:volume</code></td><td class="px-3.5 py-2 border-b border-[var(--border)] text-[var(--text-dim)]" data-i18n="u-dbvol">Show database volume info and size</td></tr>
+        <tr class="transition-colors duration-150 hover:bg-[var(--bg-card)]"><td class="px-3.5 py-2 border-b border-[var(--border)] font-semibold text-[var(--accent)]"><code class="bg-[var(--bg-code)] px-1.5 py-0.5 rounded text-xs font-mono text-[var(--text)]">./larapip.sh db:backup</code></td><td class="px-3.5 py-2 border-b border-[var(--border)] text-[var(--text-dim)]" data-i18n="u-dbbak">Dump database to backups/</td></tr>
+        <tr class="transition-colors duration-150 hover:bg-[var(--bg-card)]"><td class="px-3.5 py-2 border-b border-[var(--border)] font-semibold text-[var(--accent)]"><code class="bg-[var(--bg-code)] px-1.5 py-0.5 rounded text-xs font-mono text-[var(--text)]">./larapip.sh db:restore</code></td><td class="px-3.5 py-2 border-b border-[var(--border)] text-[var(--text-dim)]" data-i18n="u-dbrest">Restore database from dump</td></tr>
+        <tr class="transition-colors duration-150 hover:bg-[var(--bg-card)]"><td class="px-3.5 py-2 border-b border-[var(--border)] font-semibold text-[var(--accent)]"><code class="bg-[var(--bg-code)] px-1.5 py-0.5 rounded text-xs font-mono text-[var(--text)]">./larapip.sh artisan &lt;cmd&gt;</code></td><td class="px-3.5 py-2 border-b border-[var(--border)] text-[var(--text-dim)]" data-i18n="u-artisan">Run Artisan commands in container</td></tr>
+        <tr class="transition-colors duration-150 hover:bg-[var(--bg-card)]"><td class="px-3.5 py-2 border-b border-[var(--border)] font-semibold text-[var(--accent)]"><code class="bg-[var(--bg-code)] px-1.5 py-0.5 rounded text-xs font-mono text-[var(--text)]">./larapip.sh logs [svc]</code></td><td class="px-3.5 py-2 border-b border-[var(--border)] text-[var(--text-dim)]" data-i18n="u-logs">Tail logs (app, database, node, etc.)</td></tr>
+        <tr class="transition-colors duration-150 hover:bg-[var(--bg-card)]"><td class="px-3.5 py-2 border-b border-[var(--border)] font-semibold text-[var(--accent)]"><code class="bg-[var(--bg-code)] px-1.5 py-0.5 rounded text-xs font-mono text-[var(--text)]">./artisan</code></td><td class="px-3.5 py-2 border-b border-[var(--border)] text-[var(--text-dim)]" data-i18n="u-short-artisan">Shorthand for Artisan (bridge script)</td></tr>
+        <tr class="transition-colors duration-150 hover:bg-[var(--bg-card)]"><td class="px-3.5 py-2 border-b border-[var(--border)] font-semibold text-[var(--accent)]"><code class="bg-[var(--bg-code)] px-1.5 py-0.5 rounded text-xs font-mono text-[var(--text)]">./composer</code></td><td class="px-3.5 py-2 border-b border-[var(--border)] text-[var(--text-dim)]" data-i18n="u-short-composer">Shorthand for Composer (bridge script)</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div id="tab-vanilla" class="tab-content hidden">
+    <p class="text-sm text-[var(--text-dim)] mb-3" data-i18n="vanilla-intro">Larapip only generates config files. You own the stack — use plain docker compose for everything:</p>
+    <table class="w-full border-collapse text-sm">
+      <thead><tr><th class="text-left px-3.5 py-2 border-b border-[var(--border)] text-[var(--text-dim)] font-medium text-xs uppercase tracking-wide" data-i18n="col-task">Task</th><th class="text-left px-3.5 py-2 border-b border-[var(--border)] text-[var(--text-dim)] font-medium text-xs uppercase tracking-wide" data-i18n="col-command-vanilla">Docker / Docker Compose Command</th></tr></thead>
+      <tbody>
+        <tr class="transition-colors duration-150 hover:bg-[var(--bg-card)]"><td class="px-3.5 py-2 border-b border-[var(--border)] font-semibold text-[var(--accent)]" data-i18n="v-start">Start services</td><td class="px-3.5 py-2 border-b border-[var(--border)]"><code class="bg-[var(--bg-code)] px-1.5 py-0.5 rounded text-xs font-mono text-[var(--text)]">docker compose up -d</code></td></tr>
+        <tr class="transition-colors duration-150 hover:bg-[var(--bg-card)]"><td class="px-3.5 py-2 border-b border-[var(--border)] font-semibold text-[var(--accent)]" data-i18n="v-stop">Stop services</td><td class="px-3.5 py-2 border-b border-[var(--border)]"><code class="bg-[var(--bg-code)] px-1.5 py-0.5 rounded text-xs font-mono text-[var(--text)]">docker compose down</code></td></tr>
+        <tr class="transition-colors duration-150 hover:bg-[var(--bg-card)]"><td class="px-3.5 py-2 border-b border-[var(--border)] font-semibold text-[var(--accent)]" data-i18n="v-restart">Restart a service</td><td class="px-3.5 py-2 border-b border-[var(--border)]"><code class="bg-[var(--bg-code)] px-1.5 py-0.5 rounded text-xs font-mono text-[var(--text)]">docker compose restart app</code></td></tr>
+        <tr class="transition-colors duration-150 hover:bg-[var(--bg-card)]"><td class="px-3.5 py-2 border-b border-[var(--border)] font-semibold text-[var(--accent)]" data-i18n="v-shell">Open bash in app</td><td class="px-3.5 py-2 border-b border-[var(--border)]"><code class="bg-[var(--bg-code)] px-1.5 py-0.5 rounded text-xs font-mono text-[var(--text)]">docker compose exec app bash</code></td></tr>
+        <tr class="transition-colors duration-150 hover:bg-[var(--bg-card)]"><td class="px-3.5 py-2 border-b border-[var(--border)] font-semibold text-[var(--accent)]" data-i18n="v-model">Create an Eloquent model</td><td class="px-3.5 py-2 border-b border-[var(--border)]"><code class="bg-[var(--bg-code)] px-1.5 py-0.5 rounded text-xs font-mono text-[var(--text)]">docker compose exec app php artisan make:model ModelTest</code></td></tr>
+        <tr class="transition-colors duration-150 hover:bg-[var(--bg-card)]"><td class="px-3.5 py-2 border-b border-[var(--border)] font-semibold text-[var(--accent)]" data-i18n="v-migrate">Run migrations</td><td class="px-3.5 py-2 border-b border-[var(--border)]"><code class="bg-[var(--bg-code)] px-1.5 py-0.5 rounded text-xs font-mono text-[var(--text)]">docker compose exec app php artisan migrate</code></td></tr>
+        <tr class="transition-colors duration-150 hover:bg-[var(--bg-card)]"><td class="px-3.5 py-2 border-b border-[var(--border)] font-semibold text-[var(--accent)]" data-i18n="v-composer">Install a package</td><td class="px-3.5 py-2 border-b border-[var(--border)]"><code class="bg-[var(--bg-code)] px-1.5 py-0.5 rounded text-xs font-mono text-[var(--text)]">docker compose exec app composer require laravel/sanctum</code></td></tr>
+        <tr class="transition-colors duration-150 hover:bg-[var(--bg-card)]"><td class="px-3.5 py-2 border-b border-[var(--border)] font-semibold text-[var(--accent)]" data-i18n="v-npm">Run npm</td><td class="px-3.5 py-2 border-b border-[var(--border)]"><code class="bg-[var(--bg-code)] px-1.5 py-0.5 rounded text-xs font-mono text-[var(--text)]">docker compose exec node npm run build</code></td></tr>
+        <tr class="transition-colors duration-150 hover:bg-[var(--bg-card)]"><td class="px-3.5 py-2 border-b border-[var(--border)] font-semibold text-[var(--accent)]" data-i18n="v-db-mysql">MySQL/MariaDB shell</td><td class="px-3.5 py-2 border-b border-[var(--border)]"><code class="bg-[var(--bg-code)] px-1.5 py-0.5 rounded text-xs font-mono text-[var(--text)]">docker compose exec database mysql -u"$DB_USERNAME" -p"$DB_PASSWORD" "$DB_DATABASE"</code></td></tr>
+        <tr class="transition-colors duration-150 hover:bg-[var(--bg-card)]"><td class="px-3.5 py-2 border-b border-[var(--border)] font-semibold text-[var(--accent)]" data-i18n="v-db-pgsql">PostgreSQL shell</td><td class="px-3.5 py-2 border-b border-[var(--border)]"><code class="bg-[var(--bg-code)] px-1.5 py-0.5 rounded text-xs font-mono text-[var(--text)]">docker compose exec database psql -U"$DB_USERNAME" -d"$DB_DATABASE"</code></td></tr>
+        <tr class="transition-colors duration-150 hover:bg-[var(--bg-card)]"><td class="px-3.5 py-2 border-b border-[var(--border)] font-semibold text-[var(--accent)]" data-i18n="v-db-bak">Database backup</td><td class="px-3.5 py-2 border-b border-[var(--border)]"><code class="bg-[var(--bg-code)] px-1.5 py-0.5 rounded text-xs font-mono text-[var(--text)]">docker compose exec -T database mysqldump -u"$DB_USERNAME" -p"$DB_PASSWORD" "$DB_DATABASE" &gt; backup.sql</code></td></tr>
+        <tr class="transition-colors duration-150 hover:bg-[var(--bg-card)]"><td class="px-3.5 py-2 border-b border-[var(--border)] font-semibold text-[var(--accent)]" data-i18n="v-logs">Tail logs</td><td class="px-3.5 py-2 border-b border-[var(--border)]"><code class="bg-[var(--bg-code)] px-1.5 py-0.5 rounded text-xs font-mono text-[var(--text)]">docker compose logs -f app</code></td></tr>
+        <tr class="transition-colors duration-150 hover:bg-[var(--bg-card)]"><td class="px-3.5 py-2 border-b border-[var(--border)] font-semibold text-[var(--accent)]" data-i18n="v-rebuild">Rebuild and start</td><td class="px-3.5 py-2 border-b border-[var(--border)]"><code class="bg-[var(--bg-code)] px-1.5 py-0.5 rounded text-xs font-mono text-[var(--text)]">docker compose up -d --build</code></td></tr>
+        <tr class="transition-colors duration-150 hover:bg-[var(--bg-card)]"><td class="px-3.5 py-2 border-b border-[var(--border)] font-semibold text-[var(--accent)]" data-i18n="v-ps">List containers</td><td class="px-3.5 py-2 border-b border-[var(--border)]"><code class="bg-[var(--bg-code)] px-1.5 py-0.5 rounded text-xs font-mono text-[var(--text)]">docker compose ps</code></td></tr>
+        <tr class="transition-colors duration-150 hover:bg-[var(--bg-card)]"><td class="px-3.5 py-2 border-b border-[var(--border)] font-semibold text-[var(--accent)]" data-i18n="v-volume">Inspect database volume</td><td class="px-3.5 py-2 border-b border-[var(--border)]"><code class="bg-[var(--bg-code)] px-1.5 py-0.5 rounded text-xs font-mono text-[var(--text)]">docker volume inspect &lt;project&gt;_database</code></td></tr>
+        <tr class="transition-colors duration-150 hover:bg-[var(--bg-card)]"><td class="px-3.5 py-2 border-b border-[var(--border)] font-semibold text-[var(--accent)]" data-i18n="v-volume-ls">List all volumes</td><td class="px-3.5 py-2 border-b border-[var(--border)]"><code class="bg-[var(--bg-code)] px-1.5 py-0.5 rounded text-xs font-mono text-[var(--text)]">docker volume ls | grep database</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div id="tab-faq" class="tab-content hidden">
+    <div class="flex flex-col gap-1.5 mt-2">
+      <div class="faq-item bg-[var(--bg-card)] border border-[var(--border)] rounded-xl overflow-hidden">
+        <div class="faq-q flex justify-between items-center px-4 py-3.5 font-semibold text-sm text-[var(--accent)] cursor-pointer select-none hover:opacity-85"><span data-i18n="q-php-need">Need PHP installed?</span><span class="arrow flex-shrink-0 flex text-[var(--text-dim)] w-5 h-5"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9.707 5.293l6 6a1 1 0 0 1 0 1.414l-6 6a1 1 0 1 1 -1.414 -1.414l5.293 -5.293l-5.293 -5.293a1 1 0 0 1 1.414 -1.414"/></svg></span></div>
+        <div class="faq-a text-sm text-[var(--text-dim)] leading-relaxed whitespace-pre-wrap overflow-hidden transition-all duration-350 max-h-0 opacity-0 px-4" data-i18n-html="a-php-need">No. Everything runs in Docker.</div>
+      </div>
+      <div class="faq-item bg-[var(--bg-card)] border border-[var(--border)] rounded-xl overflow-hidden">
+        <div class="faq-q flex justify-between items-center px-4 py-3.5 font-semibold text-sm text-[var(--accent)] cursor-pointer select-none hover:opacity-85"><span data-i18n="q-prod">Production ready?</span><span class="arrow flex-shrink-0 flex text-[var(--text-dim)] w-5 h-5"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9.707 5.293l6 6a1 1 0 0 1 0 1.414l-6 6a1 1 0 1 1 -1.414 -1.414l5.293 -5.293l-5.293 -5.293a1 1 0 0 1 1.414 -1.414"/></svg></span></div>
+        <div class="faq-a text-sm text-[var(--text-dim)] leading-relaxed whitespace-pre-wrap overflow-hidden transition-all duration-350 max-h-0 opacity-0 px-4" data-i18n-html="a-prod">Designed for dev. Review SSL before production.</div>
+      </div>
+      <div class="faq-item bg-[var(--bg-card)] border border-[var(--border)] rounded-xl overflow-hidden">
+        <div class="faq-q flex justify-between items-center px-4 py-3.5 font-semibold text-sm text-[var(--accent)] cursor-pointer select-none hover:opacity-85"><span data-i18n="q-prod-caddy">Caddy &amp; SSL for production?</span><span class="arrow flex-shrink-0 flex text-[var(--text-dim)] w-5 h-5"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9.707 5.293l6 6a1 1 0 0 1 0 1.414l-6 6a1 1 0 1 1 -1.414 -1.414l5.293 -5.293l-5.293 -5.293a1 1 0 0 1 1.414 -1.414"/></svg></span></div>
+        <div class="faq-a text-sm text-[var(--text-dim)] leading-relaxed whitespace-pre-wrap overflow-hidden transition-all duration-350 max-h-0 opacity-0 px-4" data-i18n-html="a-prod-caddy">
+          Edit <code>config_docker/frankenphp/Caddyfile</code>:<br>
+          • Change <code>localhost</code> → your domain<br>
+          • <code>tls your@email.com</code> (auto Let's Encrypt) or <code>tls /path/cert.pem /path/key.pem</code> (manual)<br>
+          • Add <code>header / Strict-Transport-Security max-age=31536000;</code> for HSTS<br>
+          • Remove <code>auto_https off</code> to let Caddy manage TLS<br><br>
+          <b>SSL — Option A (auto):</b> set domain in Caddyfile → Caddy gets a Let's Encrypt cert automatically (needs port 80).<br>
+          <b>SSL — Option B (manual):</b> put <code>.pem</code> and <code>.key</code> in <code>config_docker/ssl/</code>, run installer with <code>SSL_MODE=manual</code>.
+        </div>
+      </div>
+      <div class="faq-item bg-[var(--bg-card)] border border-[var(--border)] rounded-xl overflow-hidden">
+        <div class="faq-q flex justify-between items-center px-4 py-3.5 font-semibold text-sm text-[var(--accent)] cursor-pointer select-none hover:opacity-85"><span data-i18n="q-prod-franken">FrankenPHP tuning?</span><span class="arrow flex-shrink-0 flex text-[var(--text-dim)] w-5 h-5"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9.707 5.293l6 6a1 1 0 0 1 0 1.414l-6 6a1 1 0 1 1 -1.414 -1.414l5.293 -5.293l-5.293 -5.293a1 1 0 0 1 1.414 -1.414"/></svg></span></div>
+        <div class="faq-a text-sm text-[var(--text-dim)] leading-relaxed whitespace-pre-wrap overflow-hidden transition-all duration-350 max-h-0 opacity-0 px-4" data-i18n-html="a-prod-franken">
+          In the Caddyfile, add inside <code>php_server</code>:<br>
+          <code>php_fastcgi max_execution_time 30 max_requests 500</code><br><br>
+          In <code>.env</code>:<br>
+          • <code>APP_ENV=production</code><br>
+          • <code>APP_DEBUG=false</code><br><br>
+          For Octane:<br>
+          <code>php artisan octane:start --server=frankenphp --host=0.0.0.0 --port=80</code>
+        </div>
+      </div>
+      <div class="faq-item bg-[var(--bg-card)] border border-[var(--border)] rounded-xl overflow-hidden">
+        <div class="faq-q flex justify-between items-center px-4 py-3.5 font-semibold text-sm text-[var(--accent)] cursor-pointer select-none hover:opacity-85"><span data-i18n="q-prod-env">.env changes for production?</span><span class="arrow flex-shrink-0 flex text-[var(--text-dim)] w-5 h-5"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9.707 5.293l6 6a1 1 0 0 1 0 1.414l-6 6a1 1 0 1 1 -1.414 -1.414l5.293 -5.293l-5.293 -5.293a1 1 0 0 1 1.414 -1.414"/></svg></span></div>
+        <div class="faq-a text-sm text-[var(--text-dim)] leading-relaxed whitespace-pre-wrap overflow-hidden transition-all duration-350 max-h-0 opacity-0 px-4" data-i18n-html="a-prod-env">
+          <code>APP_ENV=production</code><br>
+          <code>APP_DEBUG=false</code><br>
+          <code>APP_URL=https://yourdomain.com</code> ← required for absolute URLs (routes, emails, signed URLs)<br>
+          <code>APP_KEY</code> — generate with <code>php artisan key:generate</code><br>
+          <code>LOG_LEVEL=warning</code><br>
+          <code>SESSION_DRIVER</code> — e.g. <code>redis</code><br>
+          <code>CACHE_DRIVER</code> — e.g. <code>redis</code><br>
+          <code>QUEUE_CONNECTION</code> — e.g. <code>database</code> or <code>redis</code>
+        </div>
+      </div>
+      <div class="faq-item bg-[var(--bg-card)] border border-[var(--border)] rounded-xl overflow-hidden">
+        <div class="faq-q flex justify-between items-center px-4 py-3.5 font-semibold text-sm text-[var(--accent)] cursor-pointer select-none hover:opacity-85"><span data-i18n="q-prod-scale">Scale queue workers?</span><span class="arrow flex-shrink-0 flex text-[var(--text-dim)] w-5 h-5"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9.707 5.293l6 6a1 1 0 0 1 0 1.414l-6 6a1 1 0 1 1 -1.414 -1.414l5.293 -5.293l-5.293 -5.293a1 1 0 0 1 1.414 -1.414"/></svg></span></div>
+        <div class="faq-a text-sm text-[var(--text-dim)] leading-relaxed whitespace-pre-wrap overflow-hidden transition-all duration-350 max-h-0 opacity-0 px-4" data-i18n-html="a-prod-scale">
+          In <code>docker-compose.yml</code>, duplicate the <code>jobs</code> service with different <code>container_name</code> and:<br>
+          <code>command: php artisan queue:work --tries=3 --timeout=90</code><br><br>
+          For Docker Swarm, add <code>deploy.replicas: N</code> to each job service.
+        </div>
+      </div>
+      <div class="faq-item bg-[var(--bg-card)] border border-[var(--border)] rounded-xl overflow-hidden">
+        <div class="faq-q flex justify-between items-center px-4 py-3.5 font-semibold text-sm text-[var(--accent)] cursor-pointer select-none hover:opacity-85"><span data-i18n="q-db-pass">Change DB password?</span><span class="arrow flex-shrink-0 flex text-[var(--text-dim)] w-5 h-5"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9.707 5.293l6 6a1 1 0 0 1 0 1.414l-6 6a1 1 0 1 1 -1.414 -1.414l5.293 -5.293l-5.293 -5.293a1 1 0 0 1 1.414 -1.414"/></svg></span></div>
+        <div class="faq-a text-sm text-[var(--text-dim)] leading-relaxed whitespace-pre-wrap overflow-hidden transition-all duration-350 max-h-0 opacity-0 px-4" data-i18n-html="a-db-pass">Edit <code>.env</code>, restart with <code>docker compose up -d</code>.</div>
+      </div>
+      <div class="faq-item bg-[var(--bg-card)] border border-[var(--border)] rounded-xl overflow-hidden">
+        <div class="faq-q flex justify-between items-center px-4 py-3.5 font-semibold text-sm text-[var(--accent)] cursor-pointer select-none hover:opacity-85"><span data-i18n="q-volume">DB volume name?</span><span class="arrow flex-shrink-0 flex text-[var(--text-dim)] w-5 h-5"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9.707 5.293l6 6a1 1 0 0 1 0 1.414l-6 6a1 1 0 1 1 -1.414 -1.414l5.293 -5.293l-5.293 -5.293a1 1 0 0 1 1.414 -1.414"/></svg></span></div>
+        <div class="faq-a text-sm text-[var(--text-dim)] leading-relaxed whitespace-pre-wrap overflow-hidden transition-all duration-350 max-h-0 opacity-0 px-4" data-i18n-html="a-volume">Always <code>&lt;project&gt;_database</code>. Check with <code>docker volume ls</code>.</div>
+      </div>
+      <div class="faq-item bg-[var(--bg-card)] border border-[var(--border)] rounded-xl overflow-hidden">
+        <div class="faq-q flex justify-between items-center px-4 py-3.5 font-semibold text-sm text-[var(--accent)] cursor-pointer select-none hover:opacity-85"><span data-i18n="q-launcher">Need larapip.sh?</span><span class="arrow flex-shrink-0 flex text-[var(--text-dim)] w-5 h-5"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9.707 5.293l6 6a1 1 0 0 1 0 1.414l-6 6a1 1 0 1 1 -1.414 -1.414l5.293 -5.293l-5.293 -5.293a1 1 0 0 1 1.414 -1.414"/></svg></span></div>
+        <div class="faq-a text-sm text-[var(--text-dim)] leading-relaxed whitespace-pre-wrap overflow-hidden transition-all duration-350 max-h-0 opacity-0 px-4" data-i18n-html="a-launcher">No — it's optional. Use raw <code>docker compose</code>. See the <b>Vanilla Docker</b> tab.</div>
+      </div>
+      <div class="faq-item bg-[var(--bg-card)] border border-[var(--border)] rounded-xl overflow-hidden">
+        <div class="faq-q flex justify-between items-center px-4 py-3.5 font-semibold text-sm text-[var(--accent)] cursor-pointer select-none hover:opacity-85"><span data-i18n="q-laravel11">Laravel 11 safe?</span><span class="arrow flex-shrink-0 flex text-[var(--text-dim)] w-5 h-5"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9.707 5.293l6 6a1 1 0 0 1 0 1.414l-6 6a1 1 0 1 1 -1.414 -1.414l5.293 -5.293l-5.293 -5.293a1 1 0 0 1 1.414 -1.414"/></svg></span></div>
+        <div class="faq-a text-sm text-[var(--text-dim)] leading-relaxed whitespace-pre-wrap overflow-hidden transition-all duration-350 max-h-0 opacity-0 px-4" data-i18n-html="a-laravel11">EOL since Mar 12, 2026. Use 12 or 13.</div>
+      </div>
+      <div class="faq-item bg-[var(--bg-card)] border border-[var(--border)] rounded-xl overflow-hidden">
+        <div class="faq-q flex justify-between items-center px-4 py-3.5 font-semibold text-sm text-[var(--accent)] cursor-pointer select-none hover:opacity-85"><span data-i18n="q-windows">Windows?</span><span class="arrow flex-shrink-0 flex text-[var(--text-dim)] w-5 h-5"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9.707 5.293l6 6a1 1 0 0 1 0 1.414l-6 6a1 1 0 1 1 -1.414 -1.414l5.293 -5.293l-5.293 -5.293a1 1 0 0 1 1.414 -1.414"/></svg></span></div>
+        <div class="faq-a text-sm text-[var(--text-dim)] leading-relaxed whitespace-pre-wrap overflow-hidden transition-all duration-350 max-h-0 opacity-0 px-4" data-i18n-html="a-windows">Yes, via WSL2.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer class="text-center py-8 border-t border-[var(--border)] text-xs text-[var(--text-dim)] mt-10">
+  <div class="max-w-3xl mx-auto px-6">
+    <p>Larapip &mdash; MIT &middot; <a class="text-[var(--text-dim)] hover:underline" href="https://github.com/yourusername/larapip" target="_blank">GitHub</a> &middot; <a class="text-[var(--text-dim)] hover:underline" href="https://github.com/yourusername/larapip/issues" target="_blank" data-i18n="issues">Issues</a></p>
+  </div>
+</footer>
+
+
+
+<script>
+function getItem(k){try{const v=localStorage.getItem(k);if(v!==null)return v}catch(e){}const m=document.cookie.match(new RegExp('(^| )'+k+'=([^;]+)'));return m?m[2]:null}
+function setItem(k,v,y){try{localStorage.setItem(k,v)}catch(e){}const d=new Date();d.setTime(d.getTime()+(y||365)*864e5);document.cookie=k+'='+v+';expires='+d.toUTCString()+';path=/'}
+
+const LANG = {
+  en: {
+    tagline: "Laravel + Docker — interactive stack builder, one command.",
+    "tagline-sub": "Larapip is a Docker configurator. It generates docker-compose.yml, Dockerfile, and .env for you. After setup, you can use plain docker compose or the included launcher.",
+    copy: "Copy", "tab-features": "Features", "tab-versions": "Versions",
+    "tab-services": "Services", "tab-usage": "Usage", "tab-vanilla": "Vanilla Docker", "tab-faq": "FAQ",
+    "f1-title": "Zero Config", "f1-desc": "Answer 6 prompts, get a fully Dockerized Laravel stack. No manual setup.",
+    "f2-title": "FrankenPHP", "f2-desc": "HTTP/2, Octane, worker mode — all built into the PHP server.",
+    "f3-title": "Auto SSL", "f3-desc": "Caddy auto-generates local certificates. Dev HTTPS in one click.",
+    "f4-title": "Portable", "f4-desc": "Docker-only. Consistent environment on Linux, macOS, or Windows (WSL2).",
+    "f5-title": "Launcher", "f5-desc": "optional helper for containers, DB shell, backups, and more.",
+    "f6-title": "DB Volume", "f6-desc-prefix": "All engines store data in a single", "f6-desc-suffix": "volume. Inspect anytime.",
+    "col-component": "Component", "col-versions": "Versions", "col-support": "Support",
+    "v-latest": "latest", "v-stable": "stable", "v-eol": "EOL", "v-compatible": "compatible",
+    "v-db": "Database", "v-all": "all", "v-server": "Server", "v-active": "active",
+    "v-note": "PHP version is automatically filtered by Laravel compatibility at install time.",
+    "col-service": "Service", "col-use": "Use",
+    "s-mailpit": "SMTP catcher", "s-redis": "Cache / queue", "s-phpmyadmin": "MySQL/MariaDB admin",
+    "s-pgadmin": "PostgreSQL admin", "s-adminer": "Universal DB admin", "s-minio": "S3 storage",
+    "col-command": "Command", "col-desc": "What it does",
+    "u-note": "Using larapip.sh is optional. It's a convenience wrapper around docker compose — you can use Docker directly (see the Vanilla Docker tab).",
+    "u-up": "Start all containers", "u-down": "Stop all containers",
+    "u-dbshell": "Connect to database CLI (auto-detects engine)",
+    "u-dbvol": "Show database volume info and size",
+    "u-dbbak": "Dump database to backups/", "u-dbrest": "Restore database from dump",
+    "u-artisan": "Run Artisan commands in container", "u-logs": "Tail logs (app, database, node, etc.)",
+    "u-short-artisan": "Shorthand for Artisan (bridge script)", "u-short-composer": "Shorthand for Composer (bridge script)",
+    "col-task": "Task", "col-command-vanilla": "Docker / Docker Compose Command",
+    "vanilla-intro": "Larapip only generates config files. You own the stack — use plain docker compose for everything:",
+    "v-start": "Start services", "v-stop": "Stop services", "v-restart": "Restart a service",
+    "v-shell": "Open bash in app", "v-model": "Create an Eloquent model",
+    "v-migrate": "Run migrations", "v-composer": "Install a package", "v-npm": "Run npm",
+    "v-db-mysql": "MySQL/MariaDB shell", "v-db-pgsql": "PostgreSQL shell",
+    "v-db-bak": "Database backup", "v-logs": "Tail logs", "v-rebuild": "Rebuild and start",
+    "v-ps": "List containers", "v-volume": "Inspect database volume", "v-volume-ls": "List all volumes",
+    "col-question": "Question", "col-answer": "Answer",
+    "q-php-need": "Need PHP installed?", "a-php-need": "No. Everything runs in Docker.",
+    "q-prod": "Production ready?", "a-prod": "Designed for dev. Review SSL before production.",
+    "q-prod-caddy": "Caddy & SSL for production?",
+    "a-prod-caddy": "Edit <code>config_docker/frankenphp/Caddyfile</code>:<br>\n• Change <code>localhost</code> → your domain<br>\n• <code>tls your@email.com</code> (auto Let's Encrypt) or <code>tls /path/cert.pem /path/key.pem</code> (manual)<br>\n• Add <code>header / Strict-Transport-Security max-age=31536000;</code> for HSTS<br>\n• Remove <code>auto_https off</code> to let Caddy manage TLS<br><br>\n<b>SSL — Option A (auto):</b> set domain in Caddyfile → Caddy gets a Let's Encrypt cert automatically (needs port 80).<br>\n<b>SSL — Option B (manual):</b> put <code>.pem</code> and <code>.key</code> in <code>config_docker/ssl/</code>, run installer with <code>SSL_MODE=manual</code>.",
+    "q-prod-franken": "FrankenPHP tuning?",
+    "a-prod-franken": "In the Caddyfile, add inside <code>php_server</code>:<br>\n<code>php_fastcgi max_execution_time 30 max_requests 500</code><br><br>\nIn <code>.env</code>:<br>\n• <code>APP_ENV=production</code><br>\n• <code>APP_DEBUG=false</code><br><br>\nFor Octane:<br>\n<code>php artisan octane:start --server=frankenphp --host=0.0.0.0 --port=80</code>",
+    "q-prod-env": ".env changes for production?",
+    "a-prod-env": "<code>APP_ENV=production</code><br>\n<code>APP_DEBUG=false</code><br>\n<code>APP_URL=https://yourdomain.com</code> ← required for absolute URLs (routes, emails, signed URLs)<br>\n<code>APP_KEY</code> — generate with <code>php artisan key:generate</code><br>\n<code>LOG_LEVEL=warning</code><br>\n<code>SESSION_DRIVER</code> — e.g. <code>redis</code><br>\n<code>CACHE_DRIVER</code> — e.g. <code>redis</code><br>\n<code>QUEUE_CONNECTION</code> — e.g. <code>database</code> or <code>redis</code>",
+    "q-prod-scale": "Scale queue workers?",
+    "a-prod-scale": "In <code>docker-compose.yml</code>, duplicate the <code>jobs</code> service with different <code>container_name</code> and:<br>\n<code>command: php artisan queue:work --tries=3 --timeout=90</code><br><br>\nFor Docker Swarm, add <code>deploy.replicas: N</code> to each job service.",
+    "q-db-pass": "Change DB password?", "a-db-pass": "Edit <code>.env</code>, restart with <code>docker compose up -d</code>.",
+    "q-volume": "DB volume name?", "a-volume": "Always <code>&lt;project&gt;_database</code>. Check with <code>docker volume ls</code>.",
+    "q-launcher": "Need larapip.sh?", "a-launcher": "No — it's optional. Use raw <code>docker compose</code>. See the <b>Vanilla Docker</b> tab.",
+    "q-laravel11": "Laravel 11 safe?", "a-laravel11": "EOL since Mar 12, 2026. Use 12 or 13.",
+    "q-windows": "Windows?", "a-windows": "Yes, via WSL2.",
+    issues: "Issues"
+  },
+  es: {
+    tagline: "Laravel + Docker — constructor interactivo, un solo comando.",
+    "tagline-sub": "Larapip es un configurador Docker. Genera docker-compose.yml, Dockerfile y .env por ti. Luego puedes usar docker compose directamente o el lanzador incluido.",
+    copy: "Copiar", "tab-features": "Características", "tab-versions": "Versiones",
+    "tab-services": "Servicios", "tab-usage": "Uso", "tab-vanilla": "Docker Puro", "tab-faq": "FAQ",
+    "f1-title": "Sin Config", "f1-desc": "Responde 6 preguntas, obtén un stack Laravel Dockerizado. Sin configuración manual.",
+    "f2-title": "FrankenPHP", "f2-desc": "HTTP/2, Octane, worker mode — todo integrado en el servidor PHP.",
+    "f3-title": "SSL Auto", "f3-desc": "Caddy genera certificados locales automáticamente. HTTPS en un clic.",
+    "f4-title": "Portátil", "f4-desc": "Solo Docker. Mismo entorno en Linux, macOS o Windows (WSL2).",
+    "f5-title": "Lanzador", "f5-desc": "ayudante opcional para contenedores, consola BD, respaldos y más.",
+    "f6-title": "Volumen BD", "f6-desc-prefix": "Todos los motores guardan datos en un solo volumen", "f6-desc-suffix": "Inspecciona en cualquier momento.",
+    "col-component": "Componente", "col-versions": "Versiones", "col-support": "Soporte",
+    "v-latest": "última", "v-stable": "estable", "v-eol": "EOL", "v-compatible": "compatible",
+    "v-db": "Base de datos", "v-all": "todas", "v-server": "Servidor", "v-active": "activo",
+    "v-note": "La versión PHP se filtra automáticamente según la compatibilidad de Laravel.",
+    "col-service": "Servicio", "col-use": "Uso",
+    "s-mailpit": "Capturador SMTP", "s-redis": "Caché / cola", "s-phpmyadmin": "Admin MySQL/MariaDB",
+    "s-pgadmin": "Admin PostgreSQL", "s-adminer": "Admin BD universal", "s-minio": "Almacenamiento S3",
+    "col-command": "Comando", "col-desc": "Qué hace",
+    "u-note": "Usar larapip.sh es opcional. Es un envoltorio de conveniencia sobre docker compose — puedes usar Docker directamente (ver la pestaña Docker Puro).",
+    "u-up": "Iniciar todos los contenedores", "u-down": "Detener todos los contenedores",
+    "u-dbshell": "Conectar a la CLI de BD (detección automática)",
+    "u-dbvol": "Mostrar info del volumen database",
+    "u-dbbak": "Respaldar BD a backups/", "u-dbrest": "Restaurar BD desde respaldo",
+    "u-artisan": "Ejecutar comandos Artisan", "u-logs": "Ver logs (app, database, node, etc.)",
+    "u-short-artisan": "Atajo para Artisan (script puente)", "u-short-composer": "Atajo para Composer (script puente)",
+    "col-task": "Tarea", "col-command-vanilla": "Comando Docker / Docker Compose",
+    "vanilla-intro": "Larapip solo genera archivos de configuración. El stack es tuyo — usa docker compose directamente:",
+    "v-start": "Iniciar servicios", "v-stop": "Detener servicios", "v-restart": "Reiniciar servicio",
+    "v-shell": "Abrir bash en app", "v-model": "Crear un modelo Eloquent",
+    "v-migrate": "Ejecutar migraciones", "v-composer": "Instalar paquete", "v-npm": "Ejecutar npm",
+    "v-db-mysql": "Consola MySQL/MariaDB", "v-db-pgsql": "Consola PostgreSQL",
+    "v-db-bak": "Respaldar BD", "v-logs": "Ver logs", "v-rebuild": "Reconstruir e iniciar",
+    "v-ps": "Listar contenedores", "v-volume": "Inspeccionar volumen BD", "v-volume-ls": "Listar volúmenes",
+    "col-question": "Pregunta", "col-answer": "Respuesta",
+    "q-php-need": "¿Necesito PHP instalado?", "a-php-need": "No. Todo corre en Docker.",
+    "q-prod": "¿Listo para producción?", "a-prod": "Diseñado para desarrollo. Revisa SSL antes de producción.",
+    "q-prod-caddy": "¿Caddy & SSL para producción?",
+    "a-prod-caddy": "Edita <code>config_docker/frankenphp/Caddyfile</code>:<br>\n• Cambia <code>localhost</code> → tu dominio<br>\n• <code>tls tu@email.com</code> (Let's Encrypt auto) o <code>tls /ruta/cert.pem /ruta/key.pem</code> (manual)<br>\n• Agrega <code>header / Strict-Transport-Security max-age=31536000;</code> para HSTS<br>\n• Quita <code>auto_https off</code> para que Caddy gestione TLS automáticamente<br><br>\n<b>SSL — Opción A (auto):</b> pon dominio en Caddyfile → Caddy obtiene certificado Let's Encrypt (necesita puerto 80).<br>\n<b>SSL — Opción B (manual):</b> coloca <code>.pem</code> y <code>.key</code> en <code>config_docker/ssl/</code>, ejecuta instalador con <code>SSL_MODE=manual</code>.",
+    "q-prod-franken": "¿Ajustar FrankenPHP?",
+    "a-prod-franken": "En el Caddyfile, agrega dentro de <code>php_server</code>:<br>\n<code>php_fastcgi max_execution_time 30 max_requests 500</code><br><br>\nEn <code>.env</code>:<br>\n• <code>APP_ENV=production</code><br>\n• <code>APP_DEBUG=false</code><br><br>\nPara Octane:<br>\n<code>php artisan octane:start --server=frankenphp --host=0.0.0.0 --port=80</code>",
+    "q-prod-env": "¿Cambios en .env para producción?",
+    "a-prod-env": "<code>APP_ENV=production</code><br>\n<code>APP_DEBUG=false</code><br>\n<code>APP_URL=https://tudominio.com</code> ← obligatorio para URLs absolutas (rutas, emails, signed URLs)<br>\n<code>APP_KEY</code> — genera con <code>php artisan key:generate</code><br>\n<code>LOG_LEVEL=warning</code><br>\n<code>SESSION_DRIVER</code> — ej. <code>redis</code><br>\n<code>CACHE_DRIVER</code> — ej. <code>redis</code><br>\n<code>QUEUE_CONNECTION</code> — ej. <code>database</code> o <code>redis</code>",
+    "q-prod-scale": "¿Escalar workers de cola?",
+    "a-prod-scale": "En <code>docker-compose.yml</code>, duplica el servicio <code>jobs</code> con distinto <code>container_name</code> y:<br>\n<code>command: php artisan queue:work --tries=3 --timeout=90</code><br><br>\nPara Docker Swarm, agrega <code>deploy.replicas: N</code> a cada servicio.",
+    "q-db-pass": "¿Cambiar contraseña BD?", "a-db-pass": "Edita <code>.env</code>, reinicia con <code>docker compose up -d</code>.",
+    "q-volume": "¿Nombre del volumen?", "a-volume": "Siempre <code>&lt;project&gt;_database</code>. Ver con <code>docker volume ls</code>.",
+    "q-launcher": "¿Necesito larapip.sh?", "a-launcher": "No — es opcional. Usa <code>docker compose</code> directamente. Mira la pestaña <b>Docker Puro</b>.",
+    "q-laravel11": "¿Laravel 11 es seguro?", "a-laravel11": "EOL desde Mar 12, 2026. Usa 12 o 13.",
+    "q-windows": "¿Windows?", "a-windows": "Sí, mediante WSL2.",
+    issues: "Reportar"
+  }
+};
+
+let isDark = true;
+
+function applyTheme() {
+  const html = document.documentElement;
+  if (isDark) { html.classList.remove("light"); html.classList.add("dark"); }
+  else { html.classList.remove("dark"); html.classList.add("light"); }
+  const btn = document.getElementById("themeBtn");
+  const sunSvg='<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M8 12a4 4 0 1 0 8 0a4 4 0 1 0 -8 0"/><path d="M3 12h1m8 -9v1m8 8h1m-9 8v1m-6.4 -15.4l.7 .7m12.1 -.7l-.7 .7m0 11.4l.7 .7m-12.1 -.7l-.7 .7"/></svg>';
+  const moonSvg='<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454l0 .008"/><path d="M17 4a2 2 0 0 0 2 2a2 2 0 0 0 -2 2a2 2 0 0 0 -2 -2a2 2 0 0 0 2 -2"/><path d="M19 11h2m-1 -1v2"/></svg>';
+  btn.innerHTML = isDark ? sunSvg : moonSvg;
+  setItem("larapip-theme", isDark ? "dark" : "light", 365);
+}
+
+function toggleTheme() {
+  isDark = !isDark;
+  applyTheme();
+}
+
+let currentLang = "en";
+
+function applyLang() {
+  document.documentElement.lang = currentLang;
+  document.querySelectorAll("[data-i18n]").forEach(el => {
+    const key = el.dataset.i18n;
+    if (!LANG[currentLang][key]) return;
+    if (el.dataset.i18nHtml !== undefined) el.innerHTML = LANG[currentLang][key];
+    else if (el.tagName === "INPUT" || el.tagName === "TEXTAREA") el.placeholder = LANG[currentLang][key];
+    else el.textContent = LANG[currentLang][key];
+  });
+  document.getElementById("langBtn").querySelector(".label").textContent = currentLang === "en" ? "ES" : "EN";
+  // themeBtn has no text label, only SVG icon
+  setItem("larapip-lang", currentLang, 365);
+}
+
+function toggleLang() {
+  currentLang = currentLang === "en" ? "es" : "en";
+  applyLang();
+  applyTheme();
+}
+
+function copyCmd(){
+  navigator.clipboard.writeText("curl -fsSL https://larapip.dev/installer.sh | bash").then(()=>{
+    const btn=document.querySelector(".copy-btn");
+    const orig=btn.textContent;
+    btn.textContent=LANG[currentLang].copy==="Copy"?"Copied!":"¡Copiado!";
+    btn.style.borderColor="#3fb950";
+    btn.style.color="#3fb950";
+    setTimeout(()=>{btn.textContent=orig;btn.style.borderColor="";btn.style.color=""},2000);
+  })
+}
+
+// tabs
+document.querySelectorAll(".tab-btn").forEach(btn=>{
+  btn.addEventListener("click",()=>{
+    document.querySelectorAll(".tab-btn").forEach(b=>b.removeAttribute("data-active"));
+    document.querySelectorAll(".tab-content").forEach(c=>c.removeAttribute("data-active"));
+    btn.setAttribute("data-active","true");
+    document.getElementById("tab-"+btn.dataset.tab).setAttribute("data-active","true");
+  });
+});
+
+// accordion FAQ
+document.querySelectorAll(".faq-q").forEach(q=>{
+  q.addEventListener("click",()=>{
+    const item=q.closest(".faq-item");
+    const isOpen=item.classList.contains("open");
+    const closeSvg='<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9.707 5.293l6 6a1 1 0 0 1 0 1.414l-6 6a1 1 0 1 1 -1.414 -1.414l5.293 -5.293l-5.293 -5.293a1 1 0 0 1 1.414 -1.414"/></svg>';
+    const openSvg='<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M6 9l6 6l6 -6"/></svg>';
+    document.querySelectorAll(".faq-item.open").forEach(i=>{
+      i.classList.remove("open");
+      i.querySelector(".arrow").innerHTML=closeSvg;
+    });
+    if(!isOpen){item.classList.add("open");item.querySelector(".arrow").innerHTML=openSvg;}
+  });
+});
+
+// restore preferences
+const savedTheme = getItem("larapip-theme");
+if (savedTheme === "light") isDark = false;
+const savedLang = getItem("larapip-lang");
+if (savedLang === "es") currentLang = "es";
+applyTheme();
+applyLang();
+</script>
+</body>
+</html>

@@ -1,0 +1,1588 @@
+#!/usr/bin/env bash
+set -euo pipefail
+exec </dev/tty
+
+VERSION="1.0.0"
+
+RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; BLUE='\033[0;34m'; CYAN='\033[0;36m'; MAGENTA='\033[0;35m'; NC='\033[0m'
+
+info()  { printf "${CYAN}[INFO]${NC}  %s\n" "$*"; }
+ok()    { printf "${GREEN}[OK]${NC}    %s\n" "$*"; }
+warn()  { printf "${YELLOW}[WARN]${NC}  %s\n" "$*"; }
+err()   { printf "${RED}[ERROR]${NC} %s\n" "$*"; exit 1; }
+
+APP_NAME="laravel"
+PHP_VERSION=""
+DB_TYPE=""
+DB_VERSION=""
+DB_DATABASE="laravel"
+DB_USERNAME="laravel"
+DB_PASSWORD=""
+DB_CONNECTION=""
+NODE_VERSION="20"
+OPTIONAL_SERVICES=()
+SSL_MODE="none"
+DOMAIN=""
+DOCKER_CMD="docker"
+COMPOSE_CMD="docker compose"
+CURRENT_LANG=0
+PORT_CONFLICTS=false
+
+declare -A T
+T[lang_title_0]="Select language"
+T[lang_title_1]="Seleccione idioma"
+T[lang_en_0]="English"
+T[lang_en_1]="English"
+T[lang_es_0]="Spanish"
+T[lang_es_1]="Español"
+
+T[project_name_0]="Project name (used for Docker containers)"
+T[project_name_1]="Nombre del proyecto (usado para contenedores Docker)"
+T[detect_ok_0]="Laravel project detected"
+T[detect_ok_1]="Proyecto Laravel detectado"
+T[detect_not_empty_0]="Directory is not empty and does not contain a Laravel project."
+T[detect_not_empty_1]="El directorio no está vacío y no contiene un proyecto Laravel."
+T[detect_continue_0]="Continue anyway?"
+T[detect_continue_1]="¿Continuar de todas formas?"
+T[detect_skip_0]="Skip (I will install manually)"
+T[detect_skip_1]="Omitir (instalaré manualmente)"
+
+T[laravel_ver_0]="Select Laravel version to install"
+T[laravel_ver_1]="Seleccione versión de Laravel a instalar"
+T[laravel_latest_0]="Laravel 13 (latest)"
+T[laravel_latest_1]="Laravel 13 (última)"
+T[laravel_mid_0]="Laravel 12"
+T[laravel_mid_1]="Laravel 12"
+T[laravel_old_0]="Laravel 11 (EOL — no security patches)"
+T[laravel_old_1]="Laravel 11 (EOL — sin parches de seguridad)"
+T[eol_warn_0]="WARNING: Laravel 11 reached end of security support on March 12, 2026. New vulnerabilities will NOT be patched. Use Laravel 12 or 13 instead."
+T[eol_warn_1]="ADVERTENCIA: Laravel 11 terminó su soporte de seguridad el 12 de marzo de 2026. Nuevas vulnerabilidades NO serán parcheadas. Use Laravel 12 o 13."
+
+T[php_title_0]="Select PHP version for FrankenPHP"
+T[php_title_1]="Seleccione versión PHP para FrankenPHP"
+
+T[db_title_0]="Select database engine"
+T[db_title_1]="Seleccione motor de base de datos"
+T[db_mysql_0]="MySQL 8.0"
+T[db_mysql_1]="MySQL 8.0"
+T[db_mariadb_0]="MariaDB 11"
+T[db_mariadb_1]="MariaDB 11"
+T[db_pgsql_0]="PostgreSQL 16"
+T[db_pgsql_1]="PostgreSQL 16"
+T[db_sqlite_0]="SQLite"
+T[db_sqlite_1]="SQLite"
+T[db_sqlsrv_0]="SQL Server 2022"
+T[db_sqlsrv_1]="SQL Server 2022"
+T[db_none_0]="None (manual configuration)"
+T[db_none_1]="Ninguna (configuración manual)"
+
+T[node_title_0]="Select Node.js version for frontend build"
+T[node_title_1]="Seleccione versión de Node.js para frontend"
+T[node_custom_0]="Custom version"
+T[node_custom_1]="Versión personalizada"
+T[node_prompt_0]="Enter Node version (e.g. 16, 19, 21)"
+T[node_prompt_1]="Ingrese versión de Node (ej. 16, 19, 21)"
+
+T[opt_title_0]="Optional services"
+T[opt_title_1]="Servicios opcionales"
+T[ms_help_0]="Comma-separated numbers (e.g. 1,3), ENTER when done"
+T[ms_help_1]="Números separados por coma (ej. 1,3), ENTER al terminar"
+T[ms_sel_0]="Select options:"
+T[ms_sel_1]="Seleccione opciones:"
+T[num_choice_0]="Enter your choice (1-"
+T[num_choice_1]="Ingrese su opción (1-"
+T[num_invalid_0]="Invalid choice. Try again."
+T[num_invalid_1]="Opción inválida. Intente de nuevo."
+
+T[ssl_title_0]="SSL Configuration"
+T[ssl_title_1]="Configuración SSL"
+T[ssl_none_0]="No SSL (HTTP only)"
+T[ssl_none_1]="Sin SSL (solo HTTP)"
+T[ssl_auto_0]="Automatic self-signed (development)"
+T[ssl_auto_1]="Auto-firmado automático (desarrollo)"
+T[ssl_manual_0]="Manual certificates (production)"
+T[ssl_manual_1]="Certificados manuales (producción)"
+T[ssl_domain_0]="Enter your domain name (e.g., example.com)"
+T[ssl_domain_1]="Ingrese su nombre de dominio (ej., example.com)"
+T[ssl_cert_0]="Enter path to SSL certificate file (.pem/.crt)"
+T[ssl_cert_1]="Ingrese ruta al archivo de certificado SSL (.pem/.crt)"
+T[ssl_key_0]="Enter path to SSL key file (.key)"
+T[ssl_key_1]="Ingrese ruta al archivo de llave SSL (.key)"
+T[ssl_not_found_0]="Certificate files not found. Falling back to auto SSL."
+T[ssl_not_found_1]="Archivos de certificado no encontrados. Usando SSL automático."
+T[ssl_ok_0]="SSL certificates installed for"
+T[ssl_ok_1]="Certificados SSL instalados para"
+
+T[aborted_0]="Aborted by user."
+T[aborted_1]="Cancelado por el usuario."
+T[invalid_0]="Invalid option"
+T[invalid_1]="Opción inválida"
+
+t() {
+    local key="${1}_${CURRENT_LANG}"
+    echo "${T[$key]:-$1}"
+}
+
+generate_password() {
+    local len=${1:-24}
+    if command -v openssl &>/dev/null; then
+        openssl rand -base64 32 2>/dev/null | tr -dc 'a-zA-Z0-9' | head -c "$len" || date +%s | sha256sum | head -c "$len"
+    else
+        date +%s | sha256sum | head -c "$len"
+    fi
+}
+
+check_port() {
+    local port=$1
+    local name=$2
+    local pid
+    if command -v ss &>/dev/null; then
+        pid=$(ss -tlnp "sport = :$port" 2>/dev/null | grep -o 'pid=[0-9]*' | grep -o '[0-9]*' | head -1)
+        if [ -n "$pid" ]; then
+            local proc
+            proc=$(ps -p "$pid" -o comm= 2>/dev/null || echo "unknown")
+            warn "Port $port ($name) is in use by PID $pid ($proc)"
+            return 1
+        fi
+    elif command -v lsof &>/dev/null; then
+        pid=$(lsof -ti :"$port" -sTCP:LISTEN 2>/dev/null | head -1)
+        if [ -n "$pid" ]; then
+            local proc
+            proc=$(ps -p "$pid" -o comm= 2>/dev/null || echo "unknown")
+            warn "Port $port ($name) is in use by PID $pid ($proc)"
+            return 1
+        fi
+    fi
+    return 0
+}
+
+collect_ports() {
+    SHOW_PORTS=""
+    local proto="http"
+    [ "$SSL_MODE" != "none" ] && proto="https"
+    SHOW_PORTS="${SHOW_PORTS}App (${proto}):80|App (${proto}):443|"
+    SHOW_PORTS="${SHOW_PORTS}Node Vite:5173|"
+    case "$DB_TYPE" in
+        mysql|mariadb) SHOW_PORTS="${SHOW_PORTS}Database (${DB_TYPE}):3306|" ;;
+        pgsql)         SHOW_PORTS="${SHOW_PORTS}Database (PostgreSQL):5432|" ;;
+        sqlsrv)        SHOW_PORTS="${SHOW_PORTS}Database (SQL Server):1433|" ;;
+    esac
+    for service in "${OPTIONAL_SERVICES[@]}"; do
+        case "$service" in
+            Mailpit)   SHOW_PORTS="${SHOW_PORTS}Mailpit SMTP:1025|Mailpit Web:8025|" ;;
+            Redis)     SHOW_PORTS="${SHOW_PORTS}Redis:6379|" ;;
+            phpMyAdmin) SHOW_PORTS="${SHOW_PORTS}phpMyAdmin:8080|" ;;
+            pgAdmin)   SHOW_PORTS="${SHOW_PORTS}pgAdmin:8080|" ;;
+            Adminer)   SHOW_PORTS="${SHOW_PORTS}Adminer:8080|" ;;
+            MinIO)     SHOW_PORTS="${SHOW_PORTS}MinIO API:9000|MinIO Console:9001|" ;;
+        esac
+    done
+}
+
+check_port_conflicts() {
+    PORT_CONFLICTS=false
+    collect_ports
+    echo
+    info "Checking for port conflicts..."
+    local IFS='|'
+    read -ra entries <<< "$SHOW_PORTS"
+    for entry in "${entries[@]}"; do
+        [ -z "$entry" ] && continue
+        local name="${entry%%:*}"
+        local port="${entry##*:}"
+        check_port "$port" "$name" || PORT_CONFLICTS=true
+    done
+    if ! $PORT_CONFLICTS; then
+        ok "All ports are available"
+    else
+        warn "Some ports are in use. Edit docker-compose files to change them if needed."
+    fi
+}
+
+ARROW_CHOICE=0
+
+select_option() {
+    local title="$1"
+    shift
+    local items=("$@")
+    local n_items=${#items[@]}
+    local choice
+
+    echo -e "${CYAN}${title}${NC}" >&2
+    echo >&2
+    for i in "${!items[@]}"; do
+        echo "  $((i+1)). ${items[$i]}" >&2
+    done
+    echo >&2
+    while true; do
+        printf "  $(t num_choice)${n_items}): " >&2
+        read -r choice </dev/tty || true
+        if [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -ge 1 ] && [ "$choice" -le "$n_items" ]; then
+            ARROW_CHOICE=$((choice - 1))
+            echo >&2
+            break
+        fi
+        echo "  $(t num_invalid)" >&2
+    done
+}
+
+select_multiple() {
+    local title="$1"
+    shift
+    local items=("$@")
+    local n_items=${#items[@]}
+    local toggled=()
+    local choice
+
+    echo -e "${CYAN}${title}${NC}" >&2
+    echo -e "  (${YELLOW}$(t ms_help)${NC})" >&2
+    echo >&2
+    for i in "${!items[@]}"; do
+        echo "  $((i+1)). [ ] ${items[$i]}" >&2
+    done
+    echo >&2
+    printf "  $(t ms_sel) " >&2
+    read -r choice </dev/tty || true
+    IFS=', ' read -ra selections <<< "$choice"
+    for sel in "${selections[@]}"; do
+        sel="${sel//[^0-9]/}"
+        if [ -n "$sel" ] && [ "$sel" -ge 1 ] && [ "$sel" -le "$n_items" ]; then
+            toggled+=("$((sel - 1))")
+        fi
+    done
+    echo >&2
+    OPTIONAL_SERVICES=()
+    for t_idx in "${toggled[@]}"; do
+        OPTIONAL_SERVICES+=("${items[$t_idx]}")
+    done
+}
+
+select_language() {
+    select_option "$(t lang_title)" "$(t lang_en)" "$(t lang_es)"
+    CURRENT_LANG=$ARROW_CHOICE
+}
+
+print_banner() {
+    echo -e "${CYAN}"
+    cat << 'BANNER'
+╔═══════════════════════════════════════════════════════╗
+║              Larapip - Docker + Laravel              ║
+║        Automated Development Environment Setup        ║
+╚═══════════════════════════════════════════════════════╝
+BANNER
+    echo -e "${NC}"
+}
+
+check_docker() {
+    info "Checking Docker installation..."
+    if ! command -v docker &>/dev/null; then
+        err "Docker is not installed. Install it first: https://docs.docker.com/engine/install/"
+    fi
+    if ! docker info &>/dev/null; then
+        if command -v sudo &>/dev/null; then
+            warn "Docker requires elevated privileges. Using sudo..."
+            DOCKER_CMD="sudo docker"
+            COMPOSE_CMD="sudo docker compose"
+        else
+            err "Docker daemon is not running or your user lacks permissions."
+        fi
+    fi
+    if ! $COMPOSE_CMD version &>/dev/null; then
+        if $DOCKER_CMD compose version &>/dev/null; then
+            COMPOSE_CMD="$DOCKER_CMD compose"
+        else
+            err "Docker Compose is not available. Install the Docker Compose plugin."
+        fi
+    fi
+    ok "Docker is ready ($($DOCKER_CMD --version 2>/dev/null | head -1))"
+}
+
+prompt_project_name() {
+    echo
+    info "$(t project_name):"
+    printf "  ${CYAN}[laravel]${NC} "
+    read -r input_name || true
+    APP_NAME="${input_name:-laravel}"
+    APP_NAME=$(echo "$APP_NAME" | tr '[:upper:]' '[:lower:]' | tr -dc 'a-z0-9-')
+    APP_NAME="${APP_NAME:-laravel}"
+}
+
+detect_project() {
+    echo
+    info "Checking for existing Laravel project..."
+    if [ -f "composer.json" ]; then
+        if grep -qE '"laravel/(framework|laravel)"' composer.json 2>/dev/null; then
+            ok "$(t detect_ok)"
+            return 0
+        fi
+    fi
+    if [ "$(ls -A . 2>/dev/null | wc -l)" -gt 0 ]; then
+        warn "$(t detect_not_empty)"
+        printf "${YELLOW}$(t detect_continue) [y/N]${NC} "
+        read -r resp || true
+        if [[ ! "$resp" =~ ^[Yy]$ ]]; then
+            err "$(t aborted)"
+        fi
+    fi
+
+    while true; do
+        select_option "$(t laravel_ver)" "$(t laravel_latest)" "$(t laravel_mid)" "$(t laravel_old)" "$(t detect_skip)"
+        case $ARROW_CHOICE in
+            0) create_laravel 13; break ;;
+            1) create_laravel 12; break ;;
+            2)
+                echo
+                warn "$(t eol_warn)"
+                echo
+                printf "${YELLOW}$(t detect_continue) [y/N]${NC} "
+                read -r eol_resp || true
+                if [[ "$eol_resp" =~ ^[Yy]$ ]]; then
+                    create_laravel 11
+                    break
+                fi
+                info "Please select a supported version."
+                echo
+                ;;
+            3) info "Skipping Laravel creation. Proceeding with Docker setup..."; break ;;
+        esac
+    done
+}
+
+create_laravel() {
+    local version=$1
+    local pkg
+    case "$version" in
+        13) pkg="laravel/laravel:^13.0" ;;
+        12) pkg="laravel/laravel:^12.0" ;;
+        11) pkg="laravel/laravel:^11.0" ;;
+        10) pkg="laravel/laravel:^10.0" ;;
+        *)  pkg="laravel/laravel" ;;
+    esac
+
+    info "Creating Laravel ${version} project via Composer..."
+    $DOCKER_CMD run --rm \
+        -v "$(pwd)":/app \
+        -u "$(id -u):$(id -g)" \
+        composer:2 \
+        sh -c "composer create-project --prefer-dist --no-audit $pkg /tmp/laravel --no-interaction --no-progress && cp -r /tmp/laravel/. /app/ && rm -rf /tmp/laravel"
+
+    if [ ! -f "composer.json" ]; then
+        err "Failed to create Laravel project"
+    fi
+    ok "Laravel ${version} downloaded successfully"
+
+    if [ "$version" -eq 11 ]; then
+        info "Disabling security audit for EOL Laravel 11..."
+        $DOCKER_CMD run --rm \
+            -v "$(pwd)":/app \
+            -u "$(id -u):$(id -g)" \
+            --entrypoint=sh \
+            composer:2 \
+            -c "composer config --working-dir=/app audit.ignore '[\"*\"]'" 2>/dev/null || warn "Could not disable audit warnings in composer.json"
+        ok "Security audit disabled for Laravel 11"
+    fi
+}
+
+detect_laravel_version() {
+    echo
+    info "Detecting Laravel version from composer.json..."
+
+    if [ ! -f "composer.json" ]; then
+        err "composer.json not found. Run this script from a Laravel project root."
+    fi
+
+    LARAVEL_VERSION=""
+
+    if grep -qE '"laravel/framework"' composer.json 2>/dev/null; then
+        local fline
+        fline=$(grep -E '"laravel/framework"' composer.json | head -1)
+        [[ "$fline" =~ [\^~]?([0-9]+) ]] && LARAVEL_VERSION="${BASH_REMATCH[1]}"
+    fi
+
+    if [ -z "$LARAVEL_VERSION" ] && grep -qE '"laravel/laravel"' composer.json 2>/dev/null; then
+        local sline
+        sline=$(grep -E '"laravel/laravel"' composer.json | head -1)
+        [[ "$sline" =~ [\^~]?([0-9]+) ]] && LARAVEL_VERSION="${BASH_REMATCH[1]}"
+    fi
+
+    if [ -z "$LARAVEL_VERSION" ]; then
+        err "Could not determine Laravel version from composer.json"
+    fi
+    ok "Laravel ${LARAVEL_VERSION} detected"
+    if [ "$LARAVEL_VERSION" -eq 11 ]; then
+        echo
+        warn "$(t eol_warn)"
+        echo
+    fi
+}
+
+select_php_version() {
+    echo
+    local php_options=()
+    if [ "$LARAVEL_VERSION" -ge 13 ]; then
+        php_options=("8.3" "8.4")
+    elif [ "$LARAVEL_VERSION" -eq 12 ]; then
+        php_options=("8.2" "8.3" "8.4")
+    elif [ "$LARAVEL_VERSION" -eq 11 ]; then
+        php_options=("8.2" "8.3")
+    elif [ "$LARAVEL_VERSION" -eq 10 ]; then
+        php_options=("8.1" "8.2" "8.3")
+    elif [ "$LARAVEL_VERSION" -eq 9 ]; then
+        php_options=("8.0" "8.1" "8.2")
+    else
+        err "Laravel ${LARAVEL_VERSION} is not supported. Minimum required: Laravel 9 (PHP 8.0+)."
+    fi
+
+    select_option "$(t php_title)" "${php_options[@]}"
+    PHP_VERSION="${php_options[$ARROW_CHOICE]}"
+    ok "PHP ${PHP_VERSION} selected"
+}
+
+select_database() {
+    echo
+    DB_PASSWORD=$(generate_password)
+    DB_DATABASE="${APP_NAME//-/_}_db"
+    DB_USERNAME="${APP_NAME//-/_}_user"
+
+    local db_options=("$(t db_mysql)" "$(t db_mariadb)" "$(t db_pgsql)" "$(t db_sqlite)" "$(t db_sqlsrv)" "$(t db_none)")
+    select_option "$(t db_title)" "${db_options[@]}"
+
+    case "$ARROW_CHOICE" in
+        0) DB_TYPE="mysql";    DB_CONNECTION="mysql";  DB_VERSION="8.0" ;;
+        1) DB_TYPE="mariadb";  DB_CONNECTION="mysql";  DB_VERSION="11.4" ;;
+        2) DB_TYPE="pgsql";    DB_CONNECTION="pgsql";  DB_VERSION="16-alpine" ;;
+        3) DB_TYPE="sqlite";   DB_CONNECTION="sqlite" ;;
+        4) DB_TYPE="sqlsrv";   DB_CONNECTION="sqlsrv"; DB_VERSION="2022-latest" ;;
+        5) DB_TYPE="";         DB_CONNECTION="";       DB_VERSION="" ;;
+    esac
+    if [ -z "$DB_TYPE" ]; then
+        info "No database selected. Configure manually in .env"
+    else
+        ok "${DB_TYPE} selected"
+        if [ "$DB_TYPE" != "sqlite" ]; then
+            info "Database: ${DB_DATABASE}, User: ${DB_USERNAME}, Password: ${DB_PASSWORD}"
+        fi
+    fi
+}
+
+select_node_version() {
+    echo
+    local node_options=("Node 22 (LTS)" "Node 20 (LTS)" "Node 18 (LTS)" "$(t node_custom)")
+    select_option "$(t node_title)" "${node_options[@]}"
+
+    case "$ARROW_CHOICE" in
+        0) NODE_VERSION="22" ;;
+        1) NODE_VERSION="20" ;;
+        2) NODE_VERSION="18" ;;
+        3)
+            printf "  $(t node_prompt): "
+            read -r custom_node || true
+            NODE_VERSION="${custom_node:-20}"
+            ;;
+    esac
+    ok "Node ${NODE_VERSION} selected"
+}
+
+select_optional_services() {
+    echo
+    local all_opts=()
+    if [ "$DB_TYPE" = "mysql" ] || [ "$DB_TYPE" = "mariadb" ]; then
+        all_opts=("Mailpit" "Redis" "phpMyAdmin" "MinIO")
+    elif [ "$DB_TYPE" = "pgsql" ]; then
+        all_opts=("Mailpit" "Redis" "pgAdmin" "MinIO")
+    else
+        all_opts=("Mailpit" "Redis" "Adminer" "MinIO")
+    fi
+
+    select_multiple "$(t opt_title)" "${all_opts[@]}"
+
+    if [ ${#OPTIONAL_SERVICES[@]} -gt 0 ]; then
+        ok "Optional services: ${OPTIONAL_SERVICES[*]}"
+    else
+        info "No optional services selected"
+    fi
+}
+
+configure_ssl() {
+    echo
+    local ssl_options=("$(t ssl_none)" "$(t ssl_auto)" "$(t ssl_manual)")
+    select_option "$(t ssl_title)" "${ssl_options[@]}"
+
+    case "$ARROW_CHOICE" in
+        0) SSL_MODE="none" ;;
+        1)
+            SSL_MODE="auto"
+            mkdir -p config_docker/ssl
+            chmod 755 config_docker/ssl 2>/dev/null || true
+            ok "$(t ssl_auto)"
+            ;;
+        2)
+            SSL_MODE="manual"
+            printf "  $(t ssl_domain): "
+            read -r input_domain || true
+            DOMAIN="${input_domain:-localhost}"
+            printf "  $(t ssl_cert): "
+            read -r input_cert || true
+            printf "  $(t ssl_key): "
+            read -r input_key || true
+            if [ -f "$input_cert" ] && [ -f "$input_key" ]; then
+                mkdir -p config_docker/ssl
+                cp "$input_cert" config_docker/ssl/cert.pem
+                cp "$input_key" config_docker/ssl/key.pem
+                chmod 644 config_docker/ssl/cert.pem
+                chmod 600 config_docker/ssl/key.pem
+                ok "$(t ssl_ok) ${DOMAIN}"
+            else
+                warn "$(t ssl_not_found)"
+                SSL_MODE="auto"
+            fi
+            ;;
+    esac
+}
+
+generate_bridge_scripts() {
+    info "Generating artisan and composer bridge scripts..."
+    cat > artisan << 'ARTISAN'
+#!/usr/bin/env bash
+docker compose exec app php artisan "$@"
+ARTISAN
+    cat > composer << 'COMPOSER'
+#!/usr/bin/env bash
+docker compose exec app composer "$@"
+COMPOSER
+    chmod +x artisan composer
+    ok "Bridge scripts created: ./artisan and ./composer"
+}
+
+generate_launcher() {
+    info "Generating larapip.sh launcher..."
+    cat > larapip.sh << 'LARAPIP'
+#!/usr/bin/env bash
+set -euo pipefail
+
+RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; BLUE='\033[0;34m'; CYAN='\033[0;36m'; NC='\033[0m'
+info()  { printf "${CYAN}[INFO]${NC}  %s\n" "$*"; }
+ok()    { printf "${GREEN}[OK]${NC}    %s\n" "$*"; }
+warn()  { printf "${YELLOW}[WARN]${NC}  %s\n" "$*"; }
+err()   { printf "${RED}[ERROR]${NC} %s\n" "$*"; exit 1; }
+
+COMPOSE_FILE="docker-compose.yml"
+OVERRIDE_FILE="docker-compose.override.yml"
+
+if [ ! -f "$COMPOSE_FILE" ]; then
+    err "docker-compose.yml not found. Run this script from the project root."
+fi
+
+load_env() {
+    if [ -f ".env" ]; then
+        DB_TYPE=$(grep -E '^DB_CONNECTION=' .env 2>/dev/null | cut -d= -f2 || echo "")
+        DB_DATABASE=$(grep -E '^DB_DATABASE=' .env 2>/dev/null | cut -d= -f2 || echo "")
+        DB_USERNAME=$(grep -E '^DB_USERNAME=' .env 2>/dev/null | cut -d= -f2 || echo "")
+        DB_PASSWORD=$(grep -E '^DB_PASSWORD=' .env 2>/dev/null | cut -d= -f2 || echo "")
+    fi
+}
+
+get_volume_name() {
+    local project
+    project=$(grep -E '^container_name:' "$COMPOSE_FILE" 2>/dev/null | head -1 | sed 's/.*: *//' | sed 's/-app$//')
+    project="${project:-$(basename "$(pwd)")}"
+    echo "${project}_database"
+}
+
+up() {
+    info "Starting containers..."
+    docker compose -f "$COMPOSE_FILE" ${OVERRIDE_FILE:+-f "$OVERRIDE_FILE"} up -d --build
+    ok "Containers started"
+    ps
+}
+
+down() {
+    info "Stopping containers..."
+    docker compose -f "$COMPOSE_FILE" ${OVERRIDE_FILE:+-f "$OVERRIDE_FILE"} down
+    ok "Containers stopped"
+}
+
+restart() {
+    down
+    up
+}
+
+shell() {
+    info "Opening shell in app container..."
+    docker compose exec app bash || docker compose exec app sh
+}
+
+db_shell() {
+    load_env
+    if [ -z "${DB_TYPE:-}" ]; then
+        warn "DB_CONNECTION not found in .env"
+        info "Available databases:"
+        docker compose ps --format '{{.Names}}' 2>/dev/null | grep -i database || true
+        return
+    fi
+    info "Connecting to ${DB_TYPE} database..."
+    case "$DB_TYPE" in
+        mysql|mariadb)
+            docker compose exec database mysql -u"${DB_USERNAME}" -p"${DB_PASSWORD}" "${DB_DATABASE}"
+            ;;
+        pgsql)
+            docker compose exec database psql -U"${DB_USERNAME}" -d"${DB_DATABASE}"
+            ;;
+        sqlsrv)
+            docker compose exec database /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P"${DB_PASSWORD}" -C -d"${DB_DATABASE}"
+            ;;
+        sqlite)
+            docker compose exec app php artisan db:show
+            ;;
+    esac
+}
+
+db_volume() {
+    local vol
+    vol=$(get_volume_name)
+    info "Database volume: ${vol}"
+    if docker volume inspect "$vol" &>/dev/null; then
+        echo
+        docker volume inspect "$vol" | python3 -c "
+import json, sys
+data = json.load(sys.stdin)[0]
+print(f'  Name:       {data[\"Name\"]}')
+print(f'  Driver:     {data[\"Driver\"]}')
+print(f'  Mountpoint: {data[\"Mountpoint\"]}')
+print(f'  Created:    {data[\"CreatedAt\"]}')
+print(f'  Size:       {data.get(\"UsageData\", {}).get(\"Size\", \"N/A\")}')
+"
+    else
+        warn "Volume '${vol}' does not exist yet. Start containers first with: ./larapip.sh up"
+    fi
+}
+
+db_backup() {
+    load_env
+    local backup_dir="backups"
+    mkdir -p "$backup_dir"
+    local filename="${backup_dir}/${DB_DATABASE:-database}_$(date +%Y%m%d_%H%M%S).sql"
+
+    if [ -z "${DB_TYPE:-}" ]; then
+        err "DB_CONNECTION not found in .env"
+    fi
+
+    info "Backing up ${DB_TYPE} database to ${filename}..."
+
+    case "$DB_TYPE" in
+        mysql|mariadb)
+            docker compose exec -T database mysqldump -u"${DB_USERNAME}" -p"${DB_PASSWORD}" "${DB_DATABASE}" > "$filename"
+            ;;
+        pgsql)
+            docker compose exec -T database pg_dump -U"${DB_USERNAME}" "${DB_DATABASE}" > "$filename"
+            ;;
+        sqlsrv)
+            docker compose exec -T database /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P"${DB_PASSWORD}" -C -Q "BACKUP DATABASE [${DB_DATABASE}] TO DISK='/var/opt/mssql/backup.bak'"
+            docker compose cp "database:/var/opt/mssql/backup.bak" "$filename"
+            ;;
+        sqlite)
+            cp database/database.sqlite "$filename"
+            ;;
+    esac
+    ok "Backup saved to ${filename}"
+}
+
+db_restore() {
+    local file="${1:-}"
+    if [ -z "$file" ]; then
+        err "Usage: ./larapip.sh db:restore <backup-file>"
+    fi
+    if [ ! -f "$file" ]; then
+        err "File not found: ${file}"
+    fi
+    load_env
+    if [ -z "${DB_TYPE:-}" ]; then
+        err "DB_CONNECTION not found in .env"
+    fi
+
+    info "Restoring ${DB_TYPE} database from ${file}..."
+
+    case "$DB_TYPE" in
+        mysql|mariadb)
+            docker compose exec -T database mysql -u"${DB_USERNAME}" -p"${DB_PASSWORD}" "${DB_DATABASE}" < "$file"
+            ;;
+        pgsql)
+            docker compose exec -T database psql -U"${DB_USERNAME}" -d"${DB_DATABASE}" < "$file"
+            ;;
+        sqlsrv)
+            docker compose cp "$file" "database:/var/opt/mssql/restore.bak"
+            docker compose exec database /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P"${DB_PASSWORD}" -C -Q "RESTORE DATABASE [${DB_DATABASE}] FROM DISK='/var/opt/mssql/restore.bak'"
+            ;;
+        sqlite)
+            cp "$file" database/database.sqlite
+            ;;
+    esac
+    ok "Database restored from ${file}"
+}
+
+logs() {
+    local service="${1:-}"
+    if [ -n "$service" ]; then
+        docker compose logs -f "$service"
+    else
+        docker compose logs -f
+    fi
+}
+
+ps() {
+    docker compose ps
+}
+
+artisan() {
+    if [ $# -eq 0 ]; then
+        err "Usage: ./larapip.sh artisan <command>"
+    fi
+    docker compose exec app php artisan "$@"
+}
+
+composer_cmd() {
+    if [ $# -eq 0 ]; then
+        err "Usage: ./larapip.sh composer <command>"
+    fi
+    docker compose exec app composer "$@"
+}
+
+npm_cmd() {
+    if [ $# -eq 0 ]; then
+        err "Usage: ./larapip.sh npm <command>"
+    fi
+    docker compose exec node npm "$@"
+}
+
+build() {
+    info "Rebuilding app image..."
+    docker compose build app
+    ok "App image rebuilt"
+}
+
+show_help() {
+    echo -e "${CYAN}Larapip - Environment Manager${NC}"
+    echo
+    echo -e "  ${YELLOW}Usage:${NC} ./larapip.sh <command> [options]"
+    echo
+    echo -e "  ${YELLOW}Commands:${NC}"
+    echo
+    echo -e "  ${GREEN}Application:${NC}"
+    echo -e "    up                          Start all containers"
+    echo -e "    down                        Stop all containers"
+    echo -e "    restart                     Restart all containers"
+    echo -e "    build                       Rebuild app image"
+    echo -e "    shell                       Open bash in app container"
+    echo -e "    logs    [service]           Tail logs (app, database, node, etc.)"
+    echo -e "    ps                          List running services"
+    echo
+    echo -e "  ${GREEN}Database:${NC}"
+    echo -e "    db:shell                    Connect to database CLI"
+    echo -e "    db:volume                   Show database volume info"
+    echo -e "    db:backup                   Dump database to backups/"
+    echo -e "    db:restore <file>           Restore database from dump"
+    echo
+    echo -e "  ${GREEN}Laravel:${NC}"
+    echo -e "    artisan <cmd>               Run Artisan command"
+    echo -e "    composer <cmd>              Run Composer command"
+    echo -e "    npm <cmd>                   Run npm command"
+    echo
+    echo -e "  ${YELLOW}Examples:${NC}"
+    echo -e "    ./larapip.sh up"
+    echo -e "    ./larapip.sh db:shell"
+    echo -e "    ./larapip.sh artisan migrate"
+    echo -e "    ./larapip.sh logs database"
+    echo -e "    ./larapip.sh db:backup"
+}
+
+COMMAND="${1:-help}"
+shift 2>/dev/null || true
+
+case "$COMMAND" in
+    up)         up ;;
+    down)       down ;;
+    restart)    restart ;;
+    build)      build ;;
+    shell)      shell ;;
+    db:shell)   db_shell ;;
+    db:volume)  db_volume ;;
+    db:backup)  db_backup ;;
+    db:restore) db_restore "$@" ;;
+    logs)       logs "$@" ;;
+    ps)         ps ;;
+    artisan)    artisan "$@" ;;
+    composer)   composer_cmd "$@" ;;
+    npm)        npm_cmd "$@" ;;
+    help|--help|-h) show_help ;;
+    *)
+        err "Unknown command: ${COMMAND}. Run ./larapip.sh help for usage."
+        ;;
+esac
+LARAPIP
+    chmod +x larapip.sh
+    ok "Launcher created: ./larapip.sh"
+}
+
+generate_docker_compose() {
+    info "Generating docker-compose.yml..."
+    local db_service=""
+    local db_volumes_declare=""
+    local depends_on_db="database"
+
+    if [ "$DB_TYPE" = "sqlite" ] || [ -z "$DB_TYPE" ]; then
+        depends_on_db=""
+    fi
+
+    if [ "$DB_TYPE" != "sqlite" ] && [ -n "$DB_TYPE" ]; then
+        db_volumes_declare="  database:"
+        case "$DB_TYPE" in
+            mysql)
+                db_service='  database:
+    image: mysql:'"${DB_VERSION}"'
+    container_name: '"${APP_NAME}"'-database
+    restart: unless-stopped
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_DATABASE: ${DB_DATABASE}
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - database:/var/lib/mysql
+      - ./config_docker/mysql/my.cnf:/etc/mysql/conf.d/my.cnf
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - laravel-network'
+                ;;
+            mariadb)
+                db_service='  database:
+    image: mariadb:'"${DB_VERSION}"'
+    container_name: '"${APP_NAME}"'-database
+    restart: unless-stopped
+    ports:
+      - "3306:3306"
+    environment:
+      MARIADB_ROOT_PASSWORD: ${DB_PASSWORD}
+      MARIADB_DATABASE: ${DB_DATABASE}
+      MARIADB_USER: ${DB_USERNAME}
+      MARIADB_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - database:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - laravel-network'
+                ;;
+            pgsql)
+                db_service='  database:
+    image: postgres:'"${DB_VERSION}"'
+    container_name: '"${APP_NAME}"'-database
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: ${DB_DATABASE}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - database:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_DATABASE}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - laravel-network'
+                ;;
+            sqlsrv)
+                db_service='  database:
+    image: mcr.microsoft.com/mssql/server:'"${DB_VERSION}"'
+    container_name: '"${APP_NAME}"'-database
+    restart: unless-stopped
+    ports:
+      - "1433:1433"
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${DB_PASSWORD}
+      MSSQL_PID: Developer
+    volumes:
+      - database:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P '${DB_PASSWORD}' -C -Q 'SELECT 1'"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+    networks:
+      - laravel-network'
+                ;;
+        esac
+    fi
+
+    cat > docker-compose.yml << DOCKERCOMPOSE
+services:
+  app:
+    build:
+      context: .
+      dockerfile: ./config_docker/php/Dockerfile
+      args:
+        PHP_VERSION: "${PHP_VERSION}"
+        DB_DRIVER: "${DB_TYPE}"
+    image: ${APP_NAME}-app
+    container_name: ${APP_NAME}-app
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      APP_ENV: local
+    volumes:
+      - .:/app
+      - ./config_docker/ssl:/app/ssl:ro
+    networks:
+      - laravel-network
+
+  task:
+    build:
+      context: .
+      dockerfile: ./config_docker/php/Dockerfile
+      args:
+        PHP_VERSION: "${PHP_VERSION}"
+        DB_DRIVER: "${DB_TYPE}"
+    image: ${APP_NAME}-app
+    container_name: ${APP_NAME}-task
+    restart: unless-stopped
+    command: php artisan schedule:work
+    volumes:
+      - .:/app
+      - ./config_docker/ssl:/app/ssl:ro
+    networks:
+      - laravel-network
+    depends_on:
+      - app
+${depends_on_db:+      - ${depends_on_db}}
+
+  jobs:
+    build:
+      context: .
+      dockerfile: ./config_docker/php/Dockerfile
+      args:
+        PHP_VERSION: "${PHP_VERSION}"
+        DB_DRIVER: "${DB_TYPE}"
+    image: ${APP_NAME}-app
+    container_name: ${APP_NAME}-jobs
+    restart: unless-stopped
+    command: php artisan queue:work --tries=3 --timeout=90 --sleep=3
+    volumes:
+      - .:/app
+      - ./config_docker/ssl:/app/ssl:ro
+    networks:
+      - laravel-network
+    depends_on:
+      - app
+${depends_on_db:+      - ${depends_on_db}}
+
+  node:
+    image: node:${NODE_VERSION}
+    container_name: ${APP_NAME}-node
+    restart: unless-stopped
+    command: sh -c "if [ ! -d node_modules ]; then npm install; fi; npm run dev"
+    ports:
+      - "5173:5173"
+    volumes:
+      - .:/app
+    working_dir: /app
+    networks:
+      - laravel-network
+
+${db_service}
+
+networks:
+  laravel-network:
+    driver: bridge
+
+volumes:
+${db_volumes_declare}
+DOCKERCOMPOSE
+    ok "docker-compose.yml generated"
+}
+
+generate_override() {
+    if [ ${#OPTIONAL_SERVICES[@]} -eq 0 ]; then
+        return 0
+    fi
+
+    info "Generating docker-compose.override.yml..."
+    local services_block=""
+    local volumes_block=""
+
+    for service in "${OPTIONAL_SERVICES[@]}"; do
+        case "$service" in
+            Mailpit)
+                services_block="${services_block}
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: ${APP_NAME}-mailpit
+    restart: unless-stopped
+    ports:
+      - \"1025:1025\"
+      - \"8025:8025\"
+    networks:
+      - laravel-network"
+                ;;
+            Redis)
+                services_block="${services_block}
+  redis:
+    image: redis:7-alpine
+    container_name: ${APP_NAME}-redis
+    restart: unless-stopped
+    ports:
+      - \"6379:6379\"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: [\"CMD\", \"redis-cli\", \"ping\"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - laravel-network"
+                volumes_block="${volumes_block}
+  redis_data:"
+                ;;
+            phpMyAdmin)
+                services_block="${services_block}
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: ${APP_NAME}-phpmyadmin
+    restart: unless-stopped
+    ports:
+      - \"8080:80\"
+    environment:
+      PMA_HOST: database
+      PMA_PORT: 3306
+      UPLOAD_LIMIT: 256M
+    networks:
+      - laravel-network
+    depends_on:
+      - database"
+                ;;
+            pgAdmin)
+                services_block="${services_block}
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: ${APP_NAME}-pgadmin
+    restart: unless-stopped
+    ports:
+      - \"8080:80\"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@${APP_NAME}.local
+      PGADMIN_DEFAULT_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - laravel-network
+    depends_on:
+      - database"
+                volumes_block="${volumes_block}
+  pgadmin_data:"
+                ;;
+            Adminer)
+                services_block="${services_block}
+  adminer:
+    image: adminer:latest
+    container_name: ${APP_NAME}-adminer
+    restart: unless-stopped
+    ports:
+      - \"8080:8080\"
+    networks:
+      - laravel-network
+    depends_on:
+      - database"
+                ;;
+            MinIO)
+                services_block="${services_block}
+  minio:
+    image: minio/minio:latest
+    container_name: ${APP_NAME}-minio
+    restart: unless-stopped
+    command: server /data --console-address \":9001\"
+    ports:
+      - \"9000:9000\"
+      - \"9001:9001\"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - minio_data:/data
+    networks:
+      - laravel-network"
+                volumes_block="${volumes_block}
+  minio_data:"
+                ;;
+        esac
+    done
+
+    {
+        echo "services:${services_block}"
+        if [ -n "$volumes_block" ]; then
+            echo
+            echo "volumes:${volumes_block}"
+        fi
+    } > docker-compose.override.yml
+    ok "docker-compose.override.yml generated"
+}
+
+generate_dockerfile() {
+    info "Generating config_docker/php/Dockerfile..."
+    mkdir -p config_docker/php
+    cat > config_docker/php/Dockerfile << 'DOCKERFILE'
+ARG PHP_VERSION=8.3
+
+FROM dunglas/frankenphp:1.12-php${PHP_VERSION}
+
+ARG DB_DRIVER=mysql
+
+RUN install-php-extensions @composer bcmath zip opcache redis
+
+RUN if [ "${DB_DRIVER}" = "mysql" ] || [ "${DB_DRIVER}" = "mariadb" ]; then \
+        install-php-extensions pdo_mysql; \
+    fi
+
+RUN if [ "${DB_DRIVER}" = "pgsql" ]; then \
+        install-php-extensions pdo_pgsql; \
+    fi
+
+RUN if [ "${DB_DRIVER}" = "sqlite" ]; then \
+        install-php-extensions pdo_sqlite; \
+    fi
+
+RUN if [ "${DB_DRIVER}" = "sqlsrv" ]; then \
+        apt-get update && \
+        apt-get install -y unixodbc-dev && \
+        install-php-extensions pdo_sqlsrv && \
+        rm -rf /var/lib/apt/lists/*; \
+    fi
+
+COPY ./config_docker/php/local.ini /usr/local/etc/php/conf.d/local.ini
+COPY ./config_docker/frankenphp/Caddyfile /etc/caddy/Caddyfile
+
+WORKDIR /app
+DOCKERFILE
+    ok "Dockerfile generated"
+}
+
+generate_caddyfile() {
+    info "Generating config_docker/frankenphp/Caddyfile..."
+    mkdir -p config_docker/frankenphp
+
+    if [ "$SSL_MODE" = "auto" ]; then
+        cat > config_docker/frankenphp/Caddyfile << 'CADDYFILE'
+{
+    auto_https disable_admin_certs
+    admin off
+}
+
+localhost {
+    tls internal
+    root * /app/public
+    php_server {
+        resolve_root_symlink
+    }
+    file_server
+}
+CADDYFILE
+    elif [ "$SSL_MODE" = "manual" ]; then
+        cat > config_docker/frankenphp/Caddyfile << CADDYFILE
+{
+    auto_https off
+    admin off
+}
+
+${DOMAIN} {
+    tls /app/ssl/cert.pem /app/ssl/key.pem
+    root * /app/public
+    php_server {
+        resolve_root_symlink
+    }
+    file_server
+}
+CADDYFILE
+    else
+        cat > config_docker/frankenphp/Caddyfile << 'CADDYFILE'
+{
+    auto_https off
+    admin off
+}
+
+localhost {
+    root * /app/public
+    php_server {
+        resolve_root_symlink
+    }
+    file_server
+}
+CADDYFILE
+    fi
+    ok "Caddyfile generated"
+}
+
+generate_php_ini() {
+    info "Generating config_docker/php/local.ini..."
+    mkdir -p config_docker/php
+    cat > config_docker/php/local.ini << 'LOCALINI'
+upload_max_filesize = 64M
+post_max_size = 64M
+max_execution_time = 300
+memory_limit = 256M
+max_input_vars = 3000
+LOCALINI
+    ok "PHP configuration generated"
+}
+
+generate_mysql_conf() {
+    mkdir -p config_docker/mysql
+    cat > config_docker/mysql/my.cnf << 'MYCNF'
+[mysqld]
+general_log = 0
+max_allowed_packet = 64M
+innodb_buffer_pool_size = 256M
+character-set-server = utf8mb4
+collation-server = utf8mb4_unicode_ci
+
+[client]
+default-character-set = utf8mb4
+MYCNF
+}
+
+configure_env() {
+    info "Configuring .env file..."
+    if [ ! -f ".env" ]; then
+        if [ -f ".env.example" ]; then
+            cp .env.example .env
+            ok ".env created from .env.example"
+        else
+            warn "No .env.example found. Creating minimal .env..."
+            cat > .env << EOF
+APP_NAME=${APP_NAME}
+APP_ENV=local
+APP_DEBUG=true
+APP_URL=http://localhost
+
+LOG_CHANNEL=stack
+LOG_LEVEL=debug
+EOF
+        fi
+    fi
+
+    if [ -z "$DB_CONNECTION" ]; then
+        ok "No database selected, leaving .env unchanged"
+        sync_env_example
+        return
+    fi
+
+    local key val
+    for pair in "DB_CONNECTION=${DB_CONNECTION}" "DB_HOST=database"; do
+        key="${pair%%=*}"
+        val="${pair#*=}"
+        if grep -q "^[#[:space:]]*${key}=" .env 2>/dev/null; then
+            sed_i "s|^[#[:space:]]*${key}=.*|${key}=${val}|" .env
+        else
+            echo "${key}=${val}" >> .env
+        fi
+    done
+
+    case "$DB_TYPE" in
+        mysql|mariadb)
+            for pair in "DB_PORT=3306" "DB_DATABASE=${DB_DATABASE}" "DB_USERNAME=${DB_USERNAME}" "DB_PASSWORD=${DB_PASSWORD}"; do
+                key="${pair%%=*}"
+                val="${pair#*=}"
+                if grep -q "^[#[:space:]]*${key}=" .env 2>/dev/null; then
+                    sed_i "s|^[#[:space:]]*${key}=.*|${key}=${val}|" .env
+                else
+                    echo "${key}=${val}" >> .env
+                fi
+            done
+            ;;
+        pgsql)
+            for pair in "DB_PORT=5432" "DB_DATABASE=${DB_DATABASE}" "DB_USERNAME=${DB_USERNAME}" "DB_PASSWORD=${DB_PASSWORD}"; do
+                key="${pair%%=*}"
+                val="${pair#*=}"
+                if grep -q "^[#[:space:]]*${key}=" .env 2>/dev/null; then
+                    sed_i "s|^[#[:space:]]*${key}=.*|${key}=${val}|" .env
+                else
+                    echo "${key}=${val}" >> .env
+                fi
+            done
+            ;;
+        sqlite)
+            for pair in "DB_HOST=" "DB_PORT=" "DB_DATABASE=/app/database/database.sqlite"; do
+                key="${pair%%=*}"
+                val="${pair#*=}"
+                if grep -q "^[#[:space:]]*${key}=" .env 2>/dev/null; then
+                    sed_i "s|^[#[:space:]]*${key}=.*|${key}=${val}|" .env
+                fi
+            done
+            sed_i '/^[#[:space:]]*DB_USERNAME=/d' .env 2>/dev/null || true
+            sed_i '/^[#[:space:]]*DB_PASSWORD=/d' .env 2>/dev/null || true
+            touch database/database.sqlite 2>/dev/null || mkdir -p database && touch database/database.sqlite
+            ;;
+        sqlsrv)
+            for pair in "DB_PORT=1433" "DB_DATABASE=${DB_DATABASE}" "DB_USERNAME=sa" "DB_PASSWORD=${DB_PASSWORD}"; do
+                key="${pair%%=*}"
+                val="${pair#*=}"
+                if grep -q "^[#[:space:]]*${key}=" .env 2>/dev/null; then
+                    sed_i "s|^[#[:space:]]*${key}=.*|${key}=${val}|" .env
+                else
+                    echo "${key}=${val}" >> .env
+                fi
+            done
+            ;;
+    esac
+
+    if grep -q "^REDIS_HOST=" .env 2>/dev/null; then
+        for s in "${OPTIONAL_SERVICES[@]}"; do
+            if [ "$s" = "Redis" ]; then
+                sed_i 's/^REDIS_HOST=.*/REDIS_HOST=redis/' .env
+                ok "REDIS_HOST set to redis"
+                break
+            fi
+        done
+    fi
+    if [ -n "$DB_TYPE" ]; then
+        ok ".env configured for ${DB_TYPE}"
+    else
+        ok ".env configured (no database service)"
+    fi
+
+    sync_env_example
+}
+
+sed_i() {
+    if [ "$(uname -s)" = "Darwin" ]; then
+        sed -i '' "$@"
+    else
+        sed -i "$@"
+    fi
+}
+
+sync_env_example() {
+    cp .env .env.example
+    ok ".env.example synced"
+}
+
+restore_artisan() {
+    if [ ! -f "artisan" ]; then
+        return
+    fi
+    if grep -q "<?php" artisan 2>/dev/null; then
+        return
+    fi
+    warn "artisan is a shell wrapper, restoring original Laravel artisan..."
+    cat > artisan << 'PHPARTISAN'
+#!/usr/bin/env php
+<?php
+
+define('LARAVEL_START', microtime(true));
+
+require __DIR__.'/vendor/autoload.php';
+
+$app = require_once __DIR__.'/bootstrap/app.php';
+
+$kernel = $app->make(Illuminate\Contracts\Console\Kernel::class);
+
+$status = $kernel->handle(
+    $input = new Symfony\Component\Console\Input\ArgvInput,
+    new Symfony\Component\Console\Output\ConsoleOutput
+);
+
+$kernel->terminate($input, $status);
+
+exit($status);
+PHPARTISAN
+    chmod +x artisan
+    ok "artisan restored"
+}
+
+start_containers() {
+    echo
+    info "Starting Docker containers..."
+    $COMPOSE_CMD up -d --build 2>&1 | while IFS= read -r line; do
+        printf "  ${CYAN}>${NC} %s\n" "$line"
+    done
+    ok "Containers started"
+}
+
+wait_for_database() {
+    if [ "$DB_TYPE" = "sqlite" ] || [ -z "$DB_TYPE" ]; then
+        return 0
+    fi
+    echo
+    info "Waiting for database to be ready..."
+    local timeout=90
+    local elapsed=0
+    local success=false
+
+    while [ $elapsed -lt $timeout ]; do
+        case "$DB_TYPE" in
+            mysql)
+                if $COMPOSE_CMD exec -T database mysql -u root "-p${DB_PASSWORD}" -e 'SELECT 1' 2>/dev/null; then
+                    success=true
+                    break
+                fi
+                ;;
+            mariadb)
+                if $COMPOSE_CMD exec -T database healthcheck.sh --connect --innodb_initialized 2>/dev/null; then
+                    success=true
+                    break
+                fi
+                ;;
+            pgsql)
+                if $COMPOSE_CMD exec -T database sh -c "PGPASSWORD='${DB_PASSWORD}' psql -U '${DB_USERNAME}' -d '${DB_DATABASE}' -c 'SELECT 1'" 2>/dev/null; then
+                    success=true
+                    break
+                fi
+                ;;
+            sqlsrv)
+                if $COMPOSE_CMD exec -T database /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa "-P${DB_PASSWORD}" -C -Q 'SELECT 1' 2>/dev/null; then
+                    success=true
+                    break
+                fi
+                ;;
+        esac
+        sleep 3
+        elapsed=$((elapsed + 3))
+        printf "  ${CYAN}...${NC} waiting (%ds/%ds)\n" "$elapsed" "$timeout"
+    done
+
+    if $success; then
+        ok "Database is ready!"
+    else
+        warn "Database did not respond within ${timeout}s. Continuing anyway..."
+    fi
+}
+
+initialize_project() {
+    local composer_opts="--no-interaction --prefer-dist --no-progress"
+    if [ "$LARAVEL_VERSION" -eq 11 ]; then
+        composer_opts="$composer_opts --no-audit"
+    fi
+
+    echo
+    info "Running project initialization..."
+    info "Installing Composer dependencies..."
+    $COMPOSE_CMD exec -T app composer install $composer_opts 2>&1 | while IFS= read -r line; do
+        printf "  ${CYAN}>${NC} %s\n" "$line"
+    done
+    ok "Composer dependencies installed"
+
+    restore_artisan
+
+    info "Generating application key..."
+    $COMPOSE_CMD exec -T app php artisan key:generate --force 2>&1 | while IFS= read -r line; do
+        printf "  ${CYAN}>${NC} %s\n" "$line"
+    done
+    ok "Application key generated"
+
+    if [ -n "$DB_TYPE" ] && [ "$DB_TYPE" != "sqlite" ]; then
+        info "Running database migrations..."
+        $COMPOSE_CMD exec -T app php artisan migrate --force 2>&1 | while IFS= read -r line; do
+            printf "  ${CYAN}>${NC} %s\n" "$line"
+        done
+        ok "Migrations completed"
+    else
+        info "Run 'php artisan migrate' manually when ready."
+    fi
+}
+
+show_summary() {
+    echo
+    echo -e "${GREEN}╔═══════════════════════════════════════════════════════╗${NC}"
+    echo -e "${GREEN}║           Environment setup complete!               ║${NC}"
+    echo -e "${GREEN}╚═══════════════════════════════════════════════════════╝${NC}"
+    echo
+    echo -e "  ${CYAN}Project:${NC}      ${APP_NAME}"
+    echo -e "  ${CYAN}PHP:${NC}          ${PHP_VERSION} (FrankenPHP)"
+    echo -e "  ${CYAN}Database:${NC}     ${DB_TYPE}${DB_VERSION:+ (${DB_VERSION})}"
+    echo -e "  ${CYAN}Node:${NC}         ${NODE_VERSION}"
+    echo -e "  ${CYAN}SSL:${NC}          ${SSL_MODE}${DOMAIN:+ (${DOMAIN})}"
+    if [ ${#OPTIONAL_SERVICES[@]} -gt 0 ]; then
+        echo -e "  ${CYAN}Extras:${NC}       ${OPTIONAL_SERVICES[*]}"
+    fi
+    echo
+    echo -e "  ${YELLOW}Ports:${NC}"
+    collect_ports
+    local IFS='|'
+    read -ra entries <<< "$SHOW_PORTS"
+    for entry in "${entries[@]}"; do
+        [ -z "$entry" ] && continue
+        local name="${entry%%:*}"
+        local port="${entry##*:}"
+        printf "    ${CYAN}%-25s${NC} host:%s\n" "$name" "$port"
+    done
+    echo
+    echo -e "  ${YELLOW}Useful commands:${NC}"
+    echo -e "    ./larapip.sh       Environment manager (up/down/logs/db:shell/...)"
+    echo -e "    ./artisan          Laravel Artisan (inside container)"
+    echo -e "    ./composer         Composer (inside container)"
+    echo -e "    docker compose ps  Check running containers"
+    echo -e "    docker compose logs -f  Tail logs"
+    echo
+}
+
+main() {
+    local old_tty
+    old_tty=$(stty -g 2>/dev/null || true)
+    trap 'stty "${old_tty:-}" 2>/dev/null || true; tput cnorm 2>/dev/null || true; echo -en "\033[0m"; exit' INT TERM EXIT
+
+    select_language
+    print_banner
+    check_docker
+    prompt_project_name
+    detect_project
+
+    if [ -f "composer.json" ]; then
+        detect_laravel_version
+    else
+        LARAVEL_VERSION=11
+    fi
+
+    select_php_version
+    select_database
+    select_node_version
+    select_optional_services
+    configure_ssl
+
+    echo
+    info "Generating configuration files..."
+    echo
+
+    mkdir -p config_docker/ssl
+    generate_bridge_scripts
+    generate_launcher
+    generate_dockerfile
+    generate_caddyfile
+    generate_php_ini
+    generate_mysql_conf
+    generate_docker_compose
+    generate_override
+    configure_env
+
+    check_port_conflicts
+    start_containers
+    wait_for_database
+    initialize_project
+    show_summary
+
+    stty "$old_tty" 2>/dev/null || true
+    trap - INT TERM EXIT
+}
+
+main "$@"
