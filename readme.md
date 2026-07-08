@@ -5,7 +5,7 @@
 Larapip is an interactive shell script that scaffolds a complete Docker-based Laravel development environment. Answer a few questions and get a production-like local setup with FrankenPHP, databases, queues, HTTPS, and more — in under two minutes.
 
 ```bash
-curl -fsSL https://yourdomain.com/installer.sh | bash
+curl -fsSL https://yourdomain.com/install | bash
 ```
 
 ---
@@ -14,7 +14,7 @@ curl -fsSL https://yourdomain.com/installer.sh | bash
 
 ```
 larapip/
-├── installer.sh               # Interactive installer (bash)
+├── install               # Interactive installer (bash)
 ├── index.html                 # Landing page (GitHub Pages root)
 └── readme.md                  # This file
 ```

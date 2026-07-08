@@ -74,7 +74,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
     <p class="text-sm text-[var(--text-dim)] mx-auto mb-9 max-w-xl" data-i18n="tagline-sub">Larapip is a Docker configurator. It generates docker-compose.yml, Dockerfile, and .env for you. After setup, you can use plain docker compose or the included launcher.</p>
     <div class="inline-flex flex-col sm:flex-row items-center gap-3 bg-[var(--bg-code)] border border-[var(--border)] rounded-xl px-6 py-4 font-mono text-sm" role="group" aria-label="Installation command">
       <span class="text-[var(--accent2)] select-none" aria-hidden="true">$</span>
-      <span class="text-[var(--text)]" aria-label="Installation command">curl -fsSL https://robertocalani.github.io/LaraPIP/installer.sh | bash</span>
+      <span class="text-[var(--text)]" aria-label="Installation command">curl -fsSL https://robertocalani.github.io/LaraPIP/install | bash</span>
       <button class="copy-btn bg-[var(--bg-card)] border border-[var(--border)] text-[var(--text-dim)] px-3.5 py-1.5 rounded-md text-xs cursor-pointer transition-colors duration-200 hover:text-[var(--text)] hover:border-[var(--accent)]" onclick="copyCmd()" data-i18n="copy" aria-label="Copy command to clipboard">Copy</button>
     </div>
     <a class="inline-block mt-7 px-6 py-2.5 border border-[var(--border)] rounded-xl bg-[var(--bg-card)] text-[var(--text)] font-semibold text-sm transition-colors duration-200 hover:border-[var(--accent)] hover:no-underline" href="https://github.com/RobertoCalani/LaraPIP" target="_blank" rel="noopener noreferrer" aria-label="View Larapip on GitHub">
@@ -439,7 +439,7 @@ function toggleLang() {
 }
 
 function copyCmd(){
-  navigator.clipboard.writeText("curl -fsSL https://robertocalani.github.io/LaraPIP/installer.sh | bash").then(()=>{
+  navigator.clipboard.writeText("curl -fsSL https://robertocalani.github.io/LaraPIP/install | bash").then(()=>{
     const btn=document.querySelector(".copy-btn");
     const orig=btn.textContent;
     btn.textContent=LANG[currentLang].copy==="Copy"?"Copied!":"¡Copiado!";
