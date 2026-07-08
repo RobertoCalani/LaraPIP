@@ -1476,10 +1476,28 @@ ensure_db_user() {
     if [ "$DB_TYPE" != "mysql" ] && [ "$DB_TYPE" != "mariadb" ]; then
         return 0
     fi
+    local db_client="mysql"
+    local db_type_label="MySQL"
+    if [ "$DB_TYPE" = "mariadb" ]; then
+        db_client="mariadb"
+        db_type_label="MariaDB"
+    fi
+    if ! $COMPOSE_CMD ps database --format '{{.Status}}' 2>/dev/null | grep -q 'Up'; then
+        warn "Database container is not running — cannot verify user"
+        return 1
+    fi
+    if ! $COMPOSE_CMD exec -T database sh -c "command -v $db_client" 2>/dev/null; then
+        warn "$db_type_label client not found in container — trying 'mysql' as fallback"
+        db_client="mysql"
+        if ! $COMPOSE_CMD exec -T database sh -c "command -v $db_client" 2>/dev/null; then
+            warn "No database client found in container — migration may fail"
+            return 1
+        fi
+    fi
     local timeout=30
     local elapsed=0
     while [ $elapsed -lt $timeout ]; do
-        if $COMPOSE_CMD exec -T database mysql -u "${DB_USERNAME}" "-p${DB_PASSWORD}" "${DB_DATABASE}" -e 'SELECT 1' 2>/dev/null; then
+        if $COMPOSE_CMD exec -T database "$db_client" -u "${DB_USERNAME}" "-p${DB_PASSWORD}" "${DB_DATABASE}" -e 'SELECT 1' 2>/dev/null; then
             ok "Database user verified"
             return 0
         fi
@@ -1487,14 +1505,14 @@ ensure_db_user() {
         elapsed=$((elapsed + 2))
     done
     info "Database user not found — creating..."
-    $COMPOSE_CMD exec -T database mysql -u root "-p${DB_PASSWORD}" <<SQL 2>/dev/null
+    $COMPOSE_CMD exec -T database "$db_client" -u root "-p${DB_PASSWORD}" -e "
 CREATE DATABASE IF NOT EXISTS \`${DB_DATABASE}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE USER IF NOT EXISTS '${DB_USERNAME}'@'%' IDENTIFIED WITH mysql_native_password BY '${DB_PASSWORD}';
 GRANT ALL PRIVILEGES ON \`${DB_DATABASE}\`.* TO '${DB_USERNAME}'@'%';
 ALTER USER '${DB_USERNAME}'@'%' IDENTIFIED WITH mysql_native_password BY '${DB_PASSWORD}';
 FLUSH PRIVILEGES;
-SQL
-    if $COMPOSE_CMD exec -T database mysql -u "${DB_USERNAME}" "-p${DB_PASSWORD}" "${DB_DATABASE}" -e 'SELECT 1' 2>/dev/null; then
+" 2>/dev/null || true
+    if $COMPOSE_CMD exec -T database "$db_client" -u "${DB_USERNAME}" "-p${DB_PASSWORD}" "${DB_DATABASE}" -e 'SELECT 1' 2>/dev/null; then
         ok "Database user created"
     else
         warn "Could not create database user — migration may fail"
