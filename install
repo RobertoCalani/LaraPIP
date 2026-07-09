@@ -26,6 +26,8 @@ DOCKER_CMD="docker"
 COMPOSE_CMD="docker compose"
 CURRENT_LANG=0
 PORT_CONFLICTS=false
+HAS_LARAVEL_PROJECT=false
+HAS_EXISTING_DB_CONFIG=false
 
 declare -A T
 T[lang_title_0]="Select language"
@@ -116,6 +118,35 @@ T[aborted_0]="Aborted by user."
 T[aborted_1]="Cancelado por el usuario."
 T[invalid_0]="Invalid option"
 T[invalid_1]="Opción inválida"
+
+T[existing_db_check_0]="Checking for existing database configuration in .env..."
+T[existing_db_check_1]="Verificando configuración de base de datos existente en .env..."
+T[existing_db_found_0]="Existing database configuration found"
+T[existing_db_found_1]="Configuración de base de datos existente encontrada"
+T[existing_db_using_0]="Existing database configuration detected in .env — using those values."
+T[existing_db_using_1]="Configuración de base de datos existente detectada en .env — usando esos valores."
+T[existing_db_leave_0]="Existing database configuration detected — leaving .env unchanged"
+T[existing_db_leave_1]="Configuración de base de datos existente detectada — dejando .env sin cambios"
+T[db_missing_warn_0]="WARNING: No active DB_* variables found in .env"
+T[db_missing_warn_1]="AVISO: No se encontraron variables DB_* activas en .env"
+T[db_missing_desc_0]="The following variables must be set for the Docker database service:"
+T[db_missing_desc_1]="Las siguientes variables deben estar configuradas para el servicio Docker de base de datos:"
+T[db_missing_vars_0]="DB_CONNECTION, DB_HOST, DB_PORT, DB_DATABASE, DB_USERNAME, DB_PASSWORD"
+T[db_missing_vars_1]="DB_CONNECTION, DB_HOST, DB_PORT, DB_DATABASE, DB_USERNAME, DB_PASSWORD"
+T[db_config_title_0]="Database configuration"
+T[db_config_title_1]="Configuración de base de datos"
+T[db_act_generate_0]="Generate new credentials for Docker (recommended)"
+T[db_act_generate_1]="Generar nuevas credenciales para Docker (recomendado)"
+T[db_act_manual_0]="I will configure .env manually later"
+T[db_act_manual_1]="Configuraré .env manualmente después"
+T[db_creds_ok_0]="New database credentials written to .env"
+T[db_creds_ok_1]="Nuevas credenciales de base de datos escritas en .env"
+T[db_leave_unchanged_0]="Leaving .env unchanged. Configure DB_* manually before running containers."
+T[db_leave_unchanged_1]="Dejando .env sin cambios. Configure DB_* manualmente antes de ejecutar los contenedores."
+T[build_prompt_0]="Do you want to build and start Docker containers now? [Y/n]"
+T[build_prompt_1]="¿Desea construir e iniciar los contenedores Docker ahora? [Y/n]"
+T[build_skip_0]="Skipping container build. Files are ready — run './larapip.sh up' when ready."
+T[build_skip_1]="Omitiendo construcción de contenedores. Los archivos están listos — ejecute './larapip.sh up' cuando esté listo."
 
 t() {
     local key="${1}_${CURRENT_LANG}"
@@ -1263,6 +1294,44 @@ default-character-set = utf8mb4
 MYCNF
 }
 
+detect_existing_db_config() {
+    info "$(t existing_db_check)"
+
+    local required_vars=("DB_CONNECTION" "DB_HOST" "DB_PORT" "DB_DATABASE" "DB_USERNAME" "DB_PASSWORD")
+    local all_active=true
+
+    for var in "${required_vars[@]}"; do
+        if ! grep -q "^${var}=" .env 2>/dev/null; then
+            all_active=false
+            break
+        fi
+    done
+
+    if ! $all_active; then
+        return 1
+    fi
+
+    DB_CONNECTION=$(grep "^DB_CONNECTION=" .env | tail -1 | cut -d= -f2-)
+    DB_HOST=$(grep "^DB_HOST=" .env | tail -1 | cut -d= -f2-)
+    DB_PORT=$(grep "^DB_PORT=" .env | tail -1 | cut -d= -f2-)
+    DB_DATABASE=$(grep "^DB_DATABASE=" .env | tail -1 | cut -d= -f2-)
+    DB_USERNAME=$(grep "^DB_USERNAME=" .env | tail -1 | cut -d= -f2-)
+    DB_PASSWORD=$(grep "^DB_PASSWORD=" .env | tail -1 | cut -d= -f2-)
+
+    case "$DB_CONNECTION" in
+        mysql) DB_TYPE="mysql";    DB_VERSION="8.0" ;;
+        mariadb) DB_TYPE="mariadb"; DB_VERSION="11.4" ;;
+        pgsql) DB_TYPE="pgsql";    DB_VERSION="16-alpine" ;;
+        sqlite) DB_TYPE="sqlite" ;;
+        sqlsrv) DB_TYPE="sqlsrv";  DB_VERSION="2022-latest" ;;
+        *) DB_TYPE="$DB_CONNECTION"; DB_VERSION="8.0" ;;
+    esac
+
+    HAS_EXISTING_DB_CONFIG=true
+    ok "$(t existing_db_found) (${DB_CONNECTION}: ${DB_DATABASE})"
+    return 0
+}
+
 configure_env() {
     info "Configuring .env file..."
     if [ ! -f ".env" ]; then
@@ -1289,65 +1358,42 @@ EOF
         return
     fi
 
-    local key val
-    for pair in "DB_CONNECTION=${DB_CONNECTION}" "DB_HOST=database"; do
-        key="${pair%%=*}"
-        val="${pair#*=}"
-        if grep -q "^[#[:space:]]*${key}=" .env 2>/dev/null; then
-            sed_i "s|^[#[:space:]]*${key}=.*|${key}=${val}|" .env
-        else
-            echo "${key}=${val}" >> .env
-        fi
-    done
+    # ── Case 1: Existing project with active DB_* config — leave untouched ──
+    if $HAS_EXISTING_DB_CONFIG; then
+        ok "$(t existing_db_leave)"
+        sync_env_example
+        return
+    fi
 
-    case "$DB_TYPE" in
-        mysql|mariadb)
-            for pair in "DB_PORT=3306" "DB_DATABASE=${DB_DATABASE}" "DB_USERNAME=${DB_USERNAME}" "DB_PASSWORD=${DB_PASSWORD}"; do
-                key="${pair%%=*}"
-                val="${pair#*=}"
-                if grep -q "^[#[:space:]]*${key}=" .env 2>/dev/null; then
-                    sed_i "s|^[#[:space:]]*${key}=.*|${key}=${val}|" .env
-                else
-                    echo "${key}=${val}" >> .env
-                fi
-            done
-            ;;
-        pgsql)
-            for pair in "DB_PORT=5432" "DB_DATABASE=${DB_DATABASE}" "DB_USERNAME=${DB_USERNAME}" "DB_PASSWORD=${DB_PASSWORD}"; do
-                key="${pair%%=*}"
-                val="${pair#*=}"
-                if grep -q "^[#[:space:]]*${key}=" .env 2>/dev/null; then
-                    sed_i "s|^[#[:space:]]*${key}=.*|${key}=${val}|" .env
-                else
-                    echo "${key}=${val}" >> .env
-                fi
-            done
-            ;;
-        sqlite)
-            for pair in "DB_HOST=" "DB_PORT=" "DB_DATABASE=/app/database/database.sqlite"; do
-                key="${pair%%=*}"
-                val="${pair#*=}"
-                if grep -q "^[#[:space:]]*${key}=" .env 2>/dev/null; then
-                    sed_i "s|^[#[:space:]]*${key}=.*|${key}=${val}|" .env
-                fi
-            done
-            sed_i '/^[#[:space:]]*DB_USERNAME=/d' .env 2>/dev/null || true
-            sed_i '/^[#[:space:]]*DB_PASSWORD=/d' .env 2>/dev/null || true
-            touch database/database.sqlite 2>/dev/null || mkdir -p database && touch database/database.sqlite
-            ;;
-        sqlsrv)
-            for pair in "DB_PORT=1433" "DB_DATABASE=${DB_DATABASE}" "DB_USERNAME=sa" "DB_PASSWORD=${DB_PASSWORD}"; do
-                key="${pair%%=*}"
-                val="${pair#*=}"
-                if grep -q "^[#[:space:]]*${key}=" .env 2>/dev/null; then
-                    sed_i "s|^[#[:space:]]*${key}=.*|${key}=${val}|" .env
-                else
-                    echo "${key}=${val}" >> .env
-                fi
-            done
-            ;;
-    esac
+    # ── Case 2: Existing Laravel project but DB_* missing or commented ──
+    if $HAS_LARAVEL_PROJECT; then
+        echo
+        printf "${RED}$(t db_missing_warn)${NC}\n"
+        echo "  $(t db_missing_desc)"
+        echo "    $(t db_missing_vars)"
+        echo
+        local db_actions=("$(t db_act_generate)" "$(t db_act_manual)")
+        select_option "$(t db_config_title)" "${db_actions[@]}"
+        echo
+        case $ARROW_CHOICE in
+            0)
+                sed_i '/^[[:space:]]*DB_/d; /^[[:space:]]*#[[:space:]]*DB_/d' .env
+                write_db_env
+                ok "$(t db_creds_ok)"
+                ;;
+            1)
+                info "$(t db_leave_unchanged)"
+                sync_env_example
+                return
+                ;;
+        esac
+    else
+        # ── Case 3: New project — write fresh DB_* config ──
+        sed_i '/^[[:space:]]*DB_/d; /^[[:space:]]*#[[:space:]]*DB_/d' .env
+        write_db_env
+    fi
 
+    # ── Common: Redis + status + sync ──
     if grep -q "^REDIS_HOST=" .env 2>/dev/null; then
         for s in "${OPTIONAL_SERVICES[@]}"; do
             if [ "$s" = "Redis" ]; then
@@ -1357,6 +1403,7 @@ EOF
             fi
         done
     fi
+
     if [ -n "$DB_TYPE" ]; then
         ok ".env configured for ${DB_TYPE}"
     else
@@ -1364,6 +1411,50 @@ EOF
     fi
 
     sync_env_example
+}
+
+write_db_env() {
+    case "$DB_TYPE" in
+        mysql|mariadb)
+            cat >> .env << EOF
+DB_CONNECTION=${DB_CONNECTION}
+DB_HOST=database
+DB_PORT=3306
+DB_DATABASE=${DB_DATABASE}
+DB_USERNAME=${DB_USERNAME}
+DB_PASSWORD=${DB_PASSWORD}
+EOF
+            ;;
+        pgsql)
+            cat >> .env << EOF
+DB_CONNECTION=${DB_CONNECTION}
+DB_HOST=database
+DB_PORT=5432
+DB_DATABASE=${DB_DATABASE}
+DB_USERNAME=${DB_USERNAME}
+DB_PASSWORD=${DB_PASSWORD}
+EOF
+            ;;
+        sqlite)
+            cat >> .env << EOF
+DB_CONNECTION=${DB_CONNECTION}
+DB_HOST=
+DB_PORT=
+DB_DATABASE=/app/database/database.sqlite
+EOF
+            touch database/database.sqlite 2>/dev/null || mkdir -p database && touch database/database.sqlite
+            ;;
+        sqlsrv)
+            cat >> .env << EOF
+DB_CONNECTION=${DB_CONNECTION}
+DB_HOST=database
+DB_PORT=1433
+DB_DATABASE=${DB_DATABASE}
+DB_USERNAME=sa
+DB_PASSWORD=${DB_PASSWORD}
+EOF
+            ;;
+    esac
 }
 
 sed_i() {
@@ -1597,7 +1688,9 @@ main() {
     print_banner
     check_docker
     prompt_project_name
-    detect_project
+    if detect_project; then
+        HAS_LARAVEL_PROJECT=true
+    fi
 
     if [ -f "composer.json" ]; then
         detect_laravel_version
@@ -1605,8 +1698,18 @@ main() {
         LARAVEL_VERSION=11
     fi
 
+    if $HAS_LARAVEL_PROJECT && [ -f ".env" ]; then
+        detect_existing_db_config || true
+    fi
+
     select_php_version
-    select_database
+
+    if ! $HAS_EXISTING_DB_CONFIG; then
+        select_database
+    else
+        echo
+        info "$(t existing_db_using)"
+    fi
     select_node_version
     select_optional_services
     configure_ssl
@@ -1627,10 +1730,20 @@ main() {
     configure_env
 
     check_port_conflicts
-    start_containers
-    wait_for_database
-    ensure_db_user
-    initialize_project
+
+    echo
+    printf "${YELLOW}$(t build_prompt)${NC} "
+    read -r build_now </dev/tty || true
+    echo
+    if [[ -z "$build_now" || "$build_now" =~ ^[Yy]$ ]]; then
+        start_containers
+        wait_for_database
+        ensure_db_user
+        initialize_project
+    else
+        info "$(t build_skip)"
+    fi
+
     show_summary
 
     stty "$old_tty" 2>/dev/null || true
