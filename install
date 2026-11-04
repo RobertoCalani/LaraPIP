@@ -1341,6 +1341,7 @@ check_existing_docker_resources() {
     done
     
     printf "${YELLOW}$(t existing_res_clean) ${NC} "
+    local response=""
     read -r response </dev/tty || true
     
     if [[ "$response" =~ ^[Yy]$ ]]; then
@@ -1364,6 +1365,7 @@ check_existing_docker_resources() {
     else
         echo
         printf "${YELLOW}$(t existing_res_rename)${NC}: "
+        local new_name=""
         read -r new_name </dev/tty || true
         if [ -n "$new_name" ]; then
             APP_NAME=$(echo "$new_name" | tr '[:upper:]' '[:lower:]' | tr -dc 'a-z0-9-')
