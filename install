@@ -148,7 +148,6 @@ T[build_prompt_1]="¿Desea construir e iniciar los contenedores Docker ahora? [Y
 T[build_skip_0]="Skipping container build. Files are ready — run './larapip.sh up' when ready."
 T[build_skip_1]="Omitiendo construcción de contenedores. Los archivos están listos — ejecute './larapip.sh up' cuando esté listo."
 
-
 T[existing_res_0]="Existing Docker resources detected for project"
 T[existing_res_1]="Recursos Docker existentes detectados para el proyecto"
 T[existing_res_found_0]="Found:"
@@ -176,21 +175,7 @@ generate_password() {
     fi
 }
 
-check_por
-T[existing_res_0]="Existing Docker resources detected for project"
-T[existing_res_1]="Recursos Docker existentes detectados para el proyecto"
-T[existing_res_found_0]="Found:"
-T[existing_res_found_1]="Encontrados:"
-T[existing_res_clean_0]="Do you want to clean up existing resources? [Y/n]"
-T[existing_res_clean_1]="¿Desea limpiar los recursos existentes? [Y/n]"
-T[existing_res_remove_0]="Removing existing containers and images..."
-T[existing_res_remove_1]="Eliminando contenedores e imágenes existentes..."
-T[existing_res_removed_0]="Existing resources cleaned up"
-T[existing_res_removed_1]="Recursos existentes eliminados"
-T[existing_res_rename_0]="Enter a new project name"
-T[existing_res_rename_1]="Ingrese un nuevo nombre de proyecto"
-
-t() {
+check_port() {
     local port=$1
     local name=$2
     local pid
@@ -365,21 +350,7 @@ prompt_project_name() {
     APP_NAME="${APP_NAME:-laravel}"
 }
 
-detect_projec
-T[existing_res_0]="Existing Docker resources detected for project"
-T[existing_res_1]="Recursos Docker existentes detectados para el proyecto"
-T[existing_res_found_0]="Found:"
-T[existing_res_found_1]="Encontrados:"
-T[existing_res_clean_0]="Do you want to clean up existing resources? [Y/n]"
-T[existing_res_clean_1]="¿Desea limpiar los recursos existentes? [Y/n]"
-T[existing_res_remove_0]="Removing existing containers and images..."
-T[existing_res_remove_1]="Eliminando contenedores e imágenes existentes..."
-T[existing_res_removed_0]="Existing resources cleaned up"
-T[existing_res_removed_1]="Recursos existentes eliminados"
-T[existing_res_rename_0]="Enter a new project name"
-T[existing_res_rename_1]="Ingrese un nuevo nombre de proyecto"
-
-t() {
+detect_project() {
     echo
     info "Checking for existing Laravel project..."
     if [ -f "composer.json" ]; then
@@ -674,21 +645,7 @@ down() {
     ok "Containers stopped"
 }
 
-restar
-T[existing_res_0]="Existing Docker resources detected for project"
-T[existing_res_1]="Recursos Docker existentes detectados para el proyecto"
-T[existing_res_found_0]="Found:"
-T[existing_res_found_1]="Encontrados:"
-T[existing_res_clean_0]="Do you want to clean up existing resources? [Y/n]"
-T[existing_res_clean_1]="¿Desea limpiar los recursos existentes? [Y/n]"
-T[existing_res_remove_0]="Removing existing containers and images..."
-T[existing_res_remove_1]="Eliminando contenedores e imágenes existentes..."
-T[existing_res_removed_0]="Existing resources cleaned up"
-T[existing_res_removed_1]="Recursos existentes eliminados"
-T[existing_res_rename_0]="Enter a new project name"
-T[existing_res_rename_1]="Ingrese un nuevo nombre de proyecto"
-
-t() {
+restart() {
     down
     up
 }
@@ -1350,7 +1307,6 @@ default-character-set = utf8mb4
 MYCNF
 }
 
-
 check_existing_docker_resources() {
     local containers=()
     local images=()
@@ -1388,8 +1344,7 @@ check_existing_docker_resources() {
     local response=""
     read -r response </dev/tty || true
     
-    # Check if user confirmed (Y/y)
-    if [[ -n "$response" ]] && [[ "$response" =~ ^[Yy]$ ]]; then
+    if [[ "$response" =~ ^[Yy]$ ]]; then
         info "$(t existing_res_remove)"
         
         # Stop and remove containers
@@ -1407,22 +1362,7 @@ check_existing_docker_resources() {
         
         ok "$(t existing_res_removed)"
         return 0
-    elif [[ -z "$response" ]]; then
-        # read failed - auto-clean if detected
-        echo
-        warn "Terminal input not available - auto-cleaning..."
-        info "$(t existing_res_remove)"
-        for c in "${containers[@]}"; do
-            $DOCKER_CMD rm -f "$c" 2>/dev/null || true
-        done
-        for i in "${images[@]}"; do
-            $DOCKER_CMD rmi -f "$i" 2>/dev/null || true
-        done
-        $DOCKER_CMD volume rm "${APP_NAME}_database" 2>/dev/null || true
-        ok "$(t existing_res_removed)"
-        return 0
     else
-        # User declined clean - offer rename
         echo
         printf "${YELLOW}$(t existing_res_rename)${NC}: "
         local new_name=""
@@ -1754,21 +1694,7 @@ FLUSH PRIVILEGES;
     fi
 }
 
-initialize_projec
-T[existing_res_0]="Existing Docker resources detected for project"
-T[existing_res_1]="Recursos Docker existentes detectados para el proyecto"
-T[existing_res_found_0]="Found:"
-T[existing_res_found_1]="Encontrados:"
-T[existing_res_clean_0]="Do you want to clean up existing resources? [Y/n]"
-T[existing_res_clean_1]="¿Desea limpiar los recursos existentes? [Y/n]"
-T[existing_res_remove_0]="Removing existing containers and images..."
-T[existing_res_remove_1]="Eliminando contenedores e imágenes existentes..."
-T[existing_res_removed_0]="Existing resources cleaned up"
-T[existing_res_removed_1]="Recursos existentes eliminados"
-T[existing_res_rename_0]="Enter a new project name"
-T[existing_res_rename_1]="Ingrese un nuevo nombre de proyecto"
-
-t() {
+initialize_project() {
     local composer_opts="--no-interaction --prefer-dist --no-progress"
     if [ "$LARAVEL_VERSION" -eq 11 ]; then
         composer_opts="$composer_opts --no-audit"
@@ -1856,13 +1782,13 @@ main() {
         LARAVEL_VERSION=11
     fi
 
-    if $HAS_LARAVEL_PROJECT && [ -f ".env" ]; then
-        detect_existing_db_config || true
-    fi
-
     # Check for and handle existing Docker resources
     if ! check_existing_docker_resources; then
         err "$(t invalid_0)"
+    fi
+
+    if $HAS_LARAVEL_PROJECT && [ -f ".env" ]; then
+        detect_existing_db_config || true
     fi
 
     select_php_version
