@@ -1344,7 +1344,8 @@ check_existing_docker_resources() {
     local response=""
     read -r response </dev/tty || true
     
-    if [[ "$response" =~ ^[Yy]$ ]]; then
+    # Check if user confirmed (Y/y)
+    if [[ -n "$response" ]] && [[ "$response" =~ ^[Yy]$ ]]; then
         info "$(t existing_res_remove)"
         
         # Stop and remove containers
@@ -1362,12 +1363,27 @@ check_existing_docker_resources() {
         
         ok "$(t existing_res_removed)"
         return 0
+    elif [[ -z "$response" ]]; then
+        # read failed - auto-clean if detected
+        echo
+        warn "Terminal input not available - auto-cleaning..."
+        info "$(t existing_res_remove)"
+        for c in "${containers[@]}"; do
+            $DOCKER_CMD rm -f "$c" 2>/dev/null || true
+        done
+        for i in "${images[@]}"; do
+            $DOCKER_CMD rmi -f "$i" 2>/dev/null || true
+        done
+        $DOCKER_CMD volume rm "${APP_NAME}_database" 2>/dev/null || true
+        ok "$(t existing_res_removed)"
+        return 0
     else
+        # User declined clean - offer rename
         echo
         printf "${YELLOW}$(t existing_res_rename)${NC}: "
         local new_name=""
         read -r new_name </dev/tty || true
-        if [ -n "$new_name" ]; then
+        if [[ -n "$new_name" ]]; then
             APP_NAME=$(echo "$new_name" | tr '[:upper:]' '[:lower:]' | tr -dc 'a-z0-9-')
             APP_NAME="${APP_NAME:-laravel}"
             ok "Project name changed to: ${APP_NAME}"
@@ -1377,7 +1393,6 @@ check_existing_docker_resources() {
         fi
     fi
 }
-
 detect_existing_db_config() {
     info "$(t existing_db_check)"
 
