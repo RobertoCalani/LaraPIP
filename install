@@ -148,6 +148,19 @@ T[build_prompt_1]="¿Desea construir e iniciar los contenedores Docker ahora? [Y
 T[build_skip_0]="Skipping container build. Files are ready — run './larapip.sh up' when ready."
 T[build_skip_1]="Omitiendo construcción de contenedores. Los archivos están listos — ejecute './larapip.sh up' cuando esté listo."
 
+T[existing_res_0]="Existing Docker resources detected for project"
+T[existing_res_1]="Recursos Docker existentes detectados para el proyecto"
+T[existing_res_found_0]="Found:"
+T[existing_res_found_1]="Encontrados:"
+T[existing_res_clean_0]="Do you want to clean up existing resources? [Y/n]"
+T[existing_res_clean_1]="¿Desea limpiar los recursos existentes? [Y/n]"
+T[existing_res_remove_0]="Removing existing containers and images..."
+T[existing_res_remove_1]="Eliminando contenedores e imágenes existentes..."
+T[existing_res_removed_0]="Existing resources cleaned up"
+T[existing_res_removed_1]="Recursos existentes eliminados"
+T[existing_res_rename_0]="Enter a new project name"
+T[existing_res_rename_1]="Ingrese un nuevo nombre de proyecto"
+
 t() {
     local key="${1}_${CURRENT_LANG}"
     echo "${T[$key]:-$1}"
@@ -1294,6 +1307,75 @@ default-character-set = utf8mb4
 MYCNF
 }
 
+check_existing_docker_resources() {
+    local containers=()
+    local images=()
+    
+    # Check for existing containers with project name prefix
+    while IFS= read -r container; do
+        [ -n "$container" ] && containers+=("$container")
+    done < <($DOCKER_CMD ps -a --format '{{.Names}}' 2>/dev/null | grep "^${APP_NAME}-" || true)
+    
+    # Check for existing images with project name prefix (format: repo:tag)
+    while IFS= read -r image; do
+        [ -n "$image" ] && images+=("$image")
+    done < <($DOCKER_CMD images --format '{{.Repository}}:{{.Tag}}' 2>/dev/null | grep -E "^${APP_NAME}-(.*):" || true)
+    
+    # Also check for untagged images in the local repo with project name
+    while IFS= read -r image; do
+        [ -n "$image" ] && images+=("$image")
+    done < <($DOCKER_CMD images --format '{{.Repository}}' 2>/dev/null | grep "^${APP_NAME}-" || true)
+    
+    if [ ${#containers[@]} -eq 0 ] && [ ${#images[@]} -eq 0 ]; then
+        return 0
+    fi
+    
+    echo
+    warn "$(t existing_res_0) ${APP_NAME}"
+    echo "  $(t existing_res_found):"
+    for c in "${containers[@]}"; do
+        echo "    Container: $c"
+    done
+    for i in "${images[@]}"; do
+        echo "    Image: $i"
+    done
+    
+    printf "${YELLOW}$(t existing_res_clean) ${NC} "
+    read -r response </dev/tty || true
+    
+    if [[ "$response" =~ ^[Yy]$ ]]; then
+        info "$(t existing_res_remove)"
+        
+        # Stop and remove containers
+        for c in "${containers[@]}"; do
+            $DOCKER_CMD rm -f "$c" 2>/dev/null || true
+        done
+        
+        # Remove images (use force to avoid dependency errors)
+        for i in "${images[@]}"; do
+            $DOCKER_CMD rmi -f "$i" 2>/dev/null || true
+        done
+        
+        # Remove associated volumes
+        $DOCKER_CMD volume rm "${APP_NAME}_database" 2>/dev/null || true
+        
+        ok "$(t existing_res_removed)"
+        return 0
+    else
+        echo
+        printf "${YELLOW}$(t existing_res_rename)${NC}: "
+        read -r new_name </dev/tty || true
+        if [ -n "$new_name" ]; then
+            APP_NAME=$(echo "$new_name" | tr '[:upper:]' '[:lower:]' | tr -dc 'a-z0-9-')
+            APP_NAME="${APP_NAME:-laravel}"
+            ok "Project name changed to: ${APP_NAME}"
+            return 0
+        else
+            return 1
+        fi
+    fi
+}
+
 detect_existing_db_config() {
     info "$(t existing_db_check)"
 
@@ -1696,6 +1778,11 @@ main() {
         detect_laravel_version
     else
         LARAVEL_VERSION=11
+    fi
+
+    # Check for and handle existing Docker resources
+    if ! check_existing_docker_resources; then
+        err "$(t invalid_0)"
     fi
 
     if $HAS_LARAVEL_PROJECT && [ -f ".env" ]; then
