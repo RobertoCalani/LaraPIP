@@ -147,6 +147,12 @@ T[build_prompt_0]="Do you want to build and start Docker containers now? [Y/n]"
 T[build_prompt_1]="¿Desea construir e iniciar los contenedores Docker ahora? [Y/n]"
 T[build_skip_0]="Skipping container build. Files are ready — run './larapip.sh up' when ready."
 T[build_skip_1]="Omitiendo construcción de contenedores. Los archivos están listos — ejecute './larapip.sh up' cuando esté listo."
+T[frontend_build_0]="Building frontend assets..."
+T[frontend_build_1]="Construyendo assets del frontend..."
+T[frontend_built_0]="Frontend assets built"
+T[frontend_built_1]="Assets del frontend construidos"
+T[frontend_failed_0]="Frontend build failed, continuing anyway..."
+T[frontend_failed_1]="Error construyendo frontend, continuando de todos modos..."
 
 T[existing_res_0]="Existing Docker resources detected for project"
 T[existing_res_1]="Recursos Docker existentes detectados para el proyecto"
@@ -1037,7 +1043,7 @@ ${depends_on_db:+      - ${depends_on_db}}
     image: node:${NODE_VERSION}
     container_name: ${APP_NAME}-node
     restart: unless-stopped
-    command: sh -c "if [ ! -d node_modules ]; then npm install; fi; npm run dev"
+    command: sh -c "export VITE_LISTEN_URL=http://localhost:5173; npm run dev --host 0.0.0.0 --port 5173"
     ports:
       - "5173:5173"
     volumes:
@@ -1729,6 +1735,33 @@ initialize_project() {
         ok "Migrations completed"
     else
         info "Run 'php artisan migrate' manually when ready."
+    fi
+
+    # Build frontend assets only if Node service exists
+    if [ -f "package.json" ] && docker compose ps -q node &>/dev/null; then
+        build_frontend || true
+    fi
+}
+
+build_frontend() {
+    echo
+    info "$(t frontend_build)"
+    # Wait for node container to be ready
+    local retries=30
+    while [ $retries -gt 0 ]; do
+        if docker compose ps -q node &>/dev/null && docker compose exec -T node test -d node_modules 2>/dev/null; then
+            break
+        fi
+        sleep 2
+        retries=$((retries - 1))
+    done
+    docker compose exec -T node sh -c "VITE_LISTEN_URL=http://localhost:5173 npm run build" 2>&1 | while IFS= read -r line; do
+        printf "  ${CYAN}>${NC} %s\n" "$line"
+    done
+    if [ $? -eq 0 ]; then
+        ok "$(t frontend_built)"
+    else
+        warn "$(t frontend_failed)"
     fi
 }
 
