@@ -1591,8 +1591,13 @@ start_containers() {
     echo
     info "Stopping any previous containers..."
     $COMPOSE_CMD down --rmi all 2>/dev/null || true
+    info "Building app image..."
+    $DOCKER_CMD build -t "${APP_NAME}-app" -f ./config_docker/php/Dockerfile --build-arg PHP_VERSION="${PHP_VERSION}" --build-arg DB_DRIVER="${DB_TYPE:-mysql}" . 2>&1 | while IFS= read -r line; do
+        printf "  ${CYAN}>${NC} %s\n" "$line"
+    done
+    ok "App image built"
     info "Starting Docker containers..."
-    $COMPOSE_CMD up -d --build 2>&1 | while IFS= read -r line; do
+    $COMPOSE_CMD up -d 2>&1 | while IFS= read -r line; do
         printf "  ${CYAN}>${NC} %s\n" "$line"
     done
     ok "Containers started"
@@ -1837,6 +1842,7 @@ main() {
 
     stty "$old_tty" 2>/dev/null || true
     trap - INT TERM EXIT
+    exit 0
 }
 
 main "$@"
