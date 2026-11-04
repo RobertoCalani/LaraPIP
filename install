@@ -263,16 +263,15 @@ select_option() {
         echo "  $((i+1)). ${items[$i]}" >&2
     done
     echo >&2
-    while true; do
-        printf "  $(t num_choice)${n_items}): " >&2
-        read -r choice </dev/tty || true
-        if [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -ge 1 ] && [ "$choice" -le "$n_items" ]; then
-            ARROW_CHOICE=$((choice - 1))
-            echo >&2
-            break
-        fi
-        echo "  $(t num_invalid)" >&2
-    done
+    
+    read -r choice </dev/tty || true
+    if [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -ge 1 ] && [ "$choice" -le "$n_items" ]; then
+        ARROW_CHOICE=$((choice - 1))
+        echo >&2
+        return
+    fi
+    echo "  $(t num_invalid)" >&2
+    echo >&2
 }
 
 select_multiple() {
@@ -280,8 +279,7 @@ select_multiple() {
     shift
     local items=("$@")
     local n_items=${#items[@]}
-    local toggled=()
-    local choice
+    local choices=""
 
     echo -e "${CYAN}${title}${NC}" >&2
     echo -e "  (${YELLOW}$(t ms_help)${NC})" >&2
@@ -291,19 +289,17 @@ select_multiple() {
     done
     echo >&2
     printf "  $(t ms_sel) " >&2
-    read -r choice </dev/tty || true
-    IFS=', ' read -ra selections <<< "$choice"
-    for sel in "${selections[@]}"; do
-        sel="${sel//[^0-9]/}"
-        if [ -n "$sel" ] && [ "$sel" -ge 1 ] && [ "$sel" -le "$n_items" ]; then
-            toggled+=("$((sel - 1))")
+    read -r choices </dev/tty || true
+    
+    IFS=', ' read -ra selection <<< "$choices"
+    OPTIONAL_SERVICES=()
+    for s in "${selection[@]}"; do
+        s="${s//[^0-9]/}"
+        if [ -n "$s" ] && [ "$s" -ge 1 ] && [ "$s" -le "$n_items" ]; then
+            OPTIONAL_SERVICES+=("${items[$((s - 1))]}")
         fi
     done
     echo >&2
-    OPTIONAL_SERVICES=()
-    for t_idx in "${toggled[@]}"; do
-        OPTIONAL_SERVICES+=("${items[$t_idx]}")
-    done
 }
 
 select_language() {
@@ -315,8 +311,7 @@ print_banner() {
     echo -e "${CYAN}"
     cat << 'BANNER'
 ╔═══════════════════════════════════════════════════════╗
-║              Larapip - Docker + Laravel              ║
-║        Automated Development Environment Setup        ║
+║              LaraPIP - Laravel Docker Setuptools       ║
 ╚═══════════════════════════════════════════════════════╝
 BANNER
     echo -e "${NC}"
