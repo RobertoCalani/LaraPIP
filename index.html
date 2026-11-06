@@ -259,6 +259,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
         <div class="faq-a text-sm text-[var(--text-dim)] leading-relaxed whitespace-pre-wrap overflow-hidden transition-all duration-350 max-h-0 opacity-0 px-4" data-i18n-html="a-laravel11" role="region">EOL since Mar 12, 2026. Use 12 or 13.</div>
       </div>
       <div class="faq-item bg-[var(--bg-card)] border border-[var(--border)] rounded-xl overflow-hidden">
+        <div class="faq-q flex justify-between items-center px-4 py-3.5 font-semibold text-sm text-[var(--accent)] cursor-pointer select-none hover:opacity-85" role="button" tabindex="0" aria-expanded="false"><span data-i18n="q-node-start">Start Node/Vite automatically?</span><span class="arrow flex-shrink-0 flex text-[var(--text-dim)] w-5 h-5"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9.707 5.293l6 6a1 1 0 0 1 0 1.414l-6 6a1 1 0 1 1 -1.414 -1.414l5.293 -5.293l-5.293 -5.293a1 1 0 0 1 1.414 -1.414"/></svg></span></div>
+        <div class="faq-a text-sm text-[var(--text-dim)] leading-relaxed whitespace-pre-wrap overflow-hidden transition-all duration-350 max-h-0 opacity-0 px-4" data-i18n-html="a-node-start" role="region">During installation, you can choose to start Node automatically or manually. To start manually later: <code>./larapip.sh npm:start</code> or <code>docker compose up -d node</code>, then <code>docker compose exec node npm run dev --host 0.0.0.0 --port 5173</code>.</div>
+      </div>
+      <div class="faq-item bg-[var(--bg-card)] border border-[var(--border)] rounded-xl overflow-hidden">
         <div class="faq-q flex justify-between items-center px-4 py-3.5 font-semibold text-sm text-[var(--accent)] cursor-pointer select-none hover:opacity-85" role="button" tabindex="0" aria-expanded="false"><span data-i18n="q-windows">Windows?</span><span class="arrow flex-shrink-0 flex text-[var(--text-dim)] w-5 h-5"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9.707 5.293l6 6a1 1 0 0 1 0 1.414l-6 6a1 1 0 1 1 -1.414 -1.414l5.293 -5.293l-5.293 -5.293a1 1 0 0 1 1.414 -1.414"/></svg></span></div>
         <div class="faq-a text-sm text-[var(--text-dim)] leading-relaxed whitespace-pre-wrap overflow-hidden transition-all duration-350 max-h-0 opacity-0 px-4" data-i18n-html="a-windows" role="region">Yes, via WSL2.</div>
       </div>
@@ -274,6 +278,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
     {"@type":"Question","name":"Need PHP installed?","acceptedAnswer":{"@type":"Answer","text":"No. Everything runs in Docker."}},
     {"@type":"Question","name":"Production ready?","acceptedAnswer":{"@type":"Answer","text":"Designed for dev. Review SSL before production."}},
     {"@type":"Question","name":"Change DB password?","acceptedAnswer":{"@type":"Answer","text":"Edit .env, restart with docker compose up -d."}},
+    {"@type":"Question","name":"Start Node/Vite automatically?","acceptedAnswer":{"@type":"Answer","text":"During installation, choose to start Node automatically or manually. To start manually later: ./larapip.sh npm:start or docker compose up -d node, then docker compose exec node npm run dev."}},
     {"@type":"Question","name":"Laravel 11 safe?","acceptedAnswer":{"@type":"Answer","text":"EOL since Mar 12, 2026. Use 12 or 13."}},
     {"@type":"Question","name":"Windows?","acceptedAnswer":{"@type":"Answer","text":"Yes, via WSL2."}}
   ]
@@ -339,6 +344,7 @@ const LANG = {
     "a-prod-scale": "In <code>docker-compose.yml</code>, duplicate the <code>jobs</code> service with different <code>container_name</code> and:<br>\n<code>command: php artisan queue:work --tries=3 --timeout=90</code><br><br>\nFor Docker Swarm, add <code>deploy.replicas: N</code> to each job service.",
     "q-db-pass": "Change DB password?", "a-db-pass": "Edit <code>.env</code>, restart with <code>docker compose up -d</code>.",
     "q-volume": "DB volume name?", "a-volume": "Always <code>&lt;project&gt;_database</code>. Check with <code>docker volume ls</code>.",
+    "q-node-start": "Start Node/Vite automatically?", "a-node-start": "During installation, you can choose to start Node automatically or manually. To start manually later: <code>./larapip.sh npm:start</code> or <code>docker compose up -d node</code>, then <code>docker compose exec node npm run dev --host 0.0.0.0 --port 5173</code>.",
     "q-launcher": "Need larapip.sh?", "a-launcher": "No — it's optional. Use raw <code>docker compose</code>. See the <b>Vanilla Docker</b> tab.",
     "q-laravel11": "Laravel 11 safe?", "a-laravel11": "EOL since Mar 12, 2026. Use 12 or 13.",
     "q-windows": "Windows?", "a-windows": "Yes, via WSL2.",
@@ -398,6 +404,7 @@ const LANG = {
     "a-prod-scale": "En <code>docker-compose.yml</code>, duplica el servicio <code>jobs</code> con distinto <code>container_name</code> y:<br>\n<code>command: php artisan queue:work --tries=3 --timeout=90</code><br><br>\nPara Docker Swarm, agrega <code>deploy.replicas: N</code> a cada servicio.",
     "q-db-pass": "¿Cambiar contraseña BD?", "a-db-pass": "Edita <code>.env</code>, reinicia con <code>docker compose up -d</code>.",
     "q-volume": "¿Nombre del volumen?", "a-volume": "Siempre <code>&lt;project&gt;_database</code>. Ver con <code>docker volume ls</code>.",
+    "q-node-start": "¿Iniciar Node/Vite automáticamente?", "a-node-start": "Durante la instalación, puedes elegir iniciar Node automáticamente o manualmente. Para iniciar manualmente después: <code>./larapip.sh npm:start</code> o <code>docker compose up -d node</code>, luego <code>docker compose exec node npm run dev --host 0.0.0.0 --port 5173</code>.",
     "q-launcher": "¿Necesito larapip.sh?", "a-launcher": "No — es opcional. Usa <code>docker compose</code> directamente. Mira la pestaña <b>Docker Puro</b>.",
     "q-laravel11": "¿Laravel 11 es seguro?", "a-laravel11": "EOL desde Mar 12, 2026. Usa 12 o 13.",
     "q-windows": "¿Windows?", "a-windows": "Sí, mediante WSL2.",

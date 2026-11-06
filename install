@@ -83,6 +83,10 @@ T[node_custom_0]="Custom version"
 T[node_custom_1]="Versión personalizada"
 T[node_prompt_0]="Enter Node version (e.g. 16, 19, 21)"
 T[node_prompt_1]="Ingrese versión de Node (ej. 16, 19, 21)"
+T[node_auto_start_0]="Start Node/Vite automatically"
+T[node_auto_start_1]="Iniciar Node/Vite automáticamente"
+T[npm_start_0]="Starting npm run dev..."
+T[npm_start_1]="Iniciando npm run dev..."
 
 T[opt_title_0]="Optional services"
 T[opt_title_1]="Servicios opcionales"
@@ -153,6 +157,10 @@ T[frontend_built_0]="Frontend assets built"
 T[frontend_built_1]="Assets del frontend construidos"
 T[frontend_failed_0]="Frontend build failed, continuing anyway..."
 T[frontend_failed_1]="Error construyendo frontend, continuando de todos modos..."
+T[npm_install_0]="Installing npm dependencies..."
+T[npm_install_1]="Instalando dependencias npm..."
+T[npm_installed_0]="npm dependencies installed"
+T[npm_installed_1]="Dependencias npm instaladas"
 
 T[existing_res_0]="Existing Docker resources detected for project"
 T[existing_res_1]="Recursos Docker existentes detectados para el proyecto"
@@ -525,6 +533,17 @@ select_node_version() {
             ;;
     esac
     ok "Node ${NODE_VERSION} selected"
+
+    # Ask if user wants auto-start for Node/Vite
+    echo
+    printf "  ${YELLOW}$(t node_auto_start)${NC} [Y/n]: "
+    read -r node_auto || true
+    if [[ "$node_auto" =~ ^[Nn]$ ]]; then
+        NODE_AUTO_START="no"
+        info "Node will start manually when needed"
+    else
+        NODE_AUTO_START="yes"
+    fi
 }
 
 select_optional_services() {
@@ -798,6 +817,26 @@ npm_cmd() {
     docker compose exec node npm "$@"
 }
 
+npm_start() {
+    if ! docker compose ps -q node &>/dev/null; then
+        info "Starting Node container..."
+        docker compose up -d node
+    fi
+    
+    # Ensure npm dependencies are installed
+    if ! docker compose exec -T node test -d /app/node_modules 2>/dev/null; then
+        info "Installing npm dependencies..."
+        docker compose exec -T node sh -c "cd /app && npm install" 2>&1 | while IFS= read -r line; do
+            printf "  ${CYAN}>${NC} %s\n" "$line"
+        done
+    fi
+    
+    info "$(t npm_start)"
+    docker compose exec -T node sh -c "cd /app && npm run dev --host 0.0.0.0 --port 5173" 2>&1 | while IFS= read -r line; do
+        printf "  ${CYAN}>${NC} %s\n" "$line"
+    done
+}
+
 build() {
     info "Rebuilding app image..."
     docker compose build app
@@ -830,6 +869,7 @@ show_help() {
     echo -e "    artisan <cmd>               Run Artisan command"
     echo -e "    composer <cmd>              Run Composer command"
     echo -e "    npm <cmd>                   Run npm command"
+    echo -e "    npm:start                 Start Node/Vite dev server"
     echo
     echo -e "  ${YELLOW}Examples:${NC}"
     echo -e "    ./larapip.sh up"
@@ -837,6 +877,7 @@ show_help() {
     echo -e "    ./larapip.sh artisan migrate"
     echo -e "    ./larapip.sh logs database"
     echo -e "    ./larapip.sh db:backup"
+    echo -e "    ./larapip.sh npm:start    Start Vite (if auto-start disabled)"
 }
 
 COMMAND="${1:-help}"
@@ -857,6 +898,7 @@ case "$COMMAND" in
     artisan)    artisan "$@" ;;
     composer)   composer_cmd "$@" ;;
     npm)        npm_cmd "$@" ;;
+    npm:start)  npm_start ;;
     help|--help|-h) show_help ;;
     *)
         err "Unknown command: ${COMMAND}. Run ./larapip.sh help for usage."
@@ -872,6 +914,14 @@ generate_docker_compose() {
     local db_service=""
     local db_volumes_declare=""
     local depends_on_db="database"
+
+    # Node command: auto-start vs manual
+    local node_command
+    if [ "$NODE_AUTO_START" = "no" ]; then
+        node_command="    command: sleep infinity"
+    else
+        node_command='    command: sh -c "export VITE_LISTEN_URL=http://localhost:5173; npm run dev --host 0.0.0.0 --port 5173"'
+    fi
 
     if [ "$DB_TYPE" = "sqlite" ] || [ -z "$DB_TYPE" ]; then
         depends_on_db=""
@@ -1038,7 +1088,7 @@ ${depends_on_db:+      - ${depends_on_db}}
     image: node:${NODE_VERSION}
     container_name: ${APP_NAME}-node
     restart: unless-stopped
-    command: sh -c "export VITE_LISTEN_URL=http://localhost:5173; npm run dev --host 0.0.0.0 --port 5173"
+${node_command}
     ports:
       - "5173:5173"
     volumes:
@@ -1732,10 +1782,28 @@ initialize_project() {
         info "Run 'php artisan migrate' manually when ready."
     fi
 
-    # Build frontend assets only if Node service exists
+    # Install npm dependencies and build frontend assets if Node service exists
     if [ -f "package.json" ] && docker compose ps -q node &>/dev/null; then
+        npm_install_deps
         build_frontend || true
     fi
+}
+
+npm_install_deps() {
+    echo
+    info "$(t npm_install)"
+    local retries=30
+    while [ $retries -gt 0 ]; do
+        if docker compose ps -q node &>/dev/null; then
+            break
+        fi
+        sleep 2
+        retries=$((retries - 1))
+    done
+    docker compose exec -T node sh -c "cd /app && npm install" 2>&1 | while IFS= read -r line; do
+        printf "  ${CYAN}>${NC} %s\n" "$line"
+    done
+    ok "$(t npm_installed)"
 }
 
 build_frontend() {

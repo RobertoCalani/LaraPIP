@@ -66,7 +66,7 @@ your-project/
 | **app** | `{name}-app` | FrankenPHP serving the Laravel application (ports 80, 443) |
 | **task** | `{name}-task` | Runs `php artisan schedule:work` |
 | **jobs** | `{name}-jobs` | Runs `php artisan queue:work --tries=3` |
-| **node** | `{name}-node` | Node.js with `npm run dev` (Vite HMR on port 5173) |
+| **node** | `{name}-node` | Node.js with Vite HMR (port 5173) <br> Starts automatically unless disabled during installation |
 | **database** | `{name}-database` | Selected database engine |
 
 ---
@@ -101,6 +101,7 @@ your-project/
 ./artisan migrate              # Run migrations (inside container)
 ./composer require package     # Install Composer packages
 ./larapip.sh npm run build     # Run npm commands
+./larapip.sh npm:start         # Start Node/Vite dev server (if auto-start disabled)
 ```
 
 ---
